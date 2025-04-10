@@ -1,0 +1,138 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Run tests
+    runs-on: ubuntu-22.04
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: konsultasi_db
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Check out the Git repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Java toolchain
+        uses: actions/setup-java@3a4f6e1af504cf6a31855fa899c6aa5355ba6c12 # v4.7.0
+        with:
+          distribution: "temurin"
+          java-version: "21"
+          cache: "gradle"
+
+      - name: Add gradlew permission
+        run: chmod +x gradlew
+
+      - name: Run unit tests
+        run: ./gradlew test
+        env:
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/konsultasi_db
+          SPRING_DATASOURCE_USERNAME: postgres
+          SPRING_DATASOURCE_PASSWORD: postgres
+
+  deploy:
+    name: Deploy to EC2
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
+
+    steps:
+      - name: Checkout the files
+        uses: actions/checkout@v2
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST_DNS }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            
+            cd ~
+            
+            # Check if the repo exists, if so pull latest changes, otherwise clone
+            if [ -d "be-konsultasi" ]; then
+              cd be-konsultasi
+              git fetch
+              git checkout ${{ github.ref_name }}
+              git pull
+            else
+              git clone -b ${{ github.ref_name }} https://github.com/${{ github.repository }}.git be-konsultasi
+              cd be-konsultasi
+            fi
+            
+            # Install Docker if not already installed
+            if ! [ -x "$(command -v docker)" ]; then
+              echo 'Installing Docker...'
+              sudo apt-get update
+              sudo apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release
+            
+              curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+            
+              echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+            
+              sudo apt-get update
+              sudo apt-get install -y docker-ce docker-ce-cli containerd.io
+            fi
+            
+            # Check if docker compose is available (either as plugin or standalone)
+            if docker compose version > /dev/null 2>&1; then
+              # Docker Compose plugin is available
+              echo "Using Docker Compose plugin"
+            
+              # Stop and remove containers if they exist
+              sudo docker compose down
+            
+              # Build and start containers
+              sudo docker compose build
+              sudo docker compose up -d
+            
+              # Show running containers
+              sudo docker compose ps
+            elif [ -x "$(command -v docker-compose)" ]; then
+              # Docker Compose standalone is available
+              echo "Using Docker Compose standalone"
+            
+              # Stop and remove containers if they exist
+              sudo docker-compose down
+            
+              # Build and start containers
+              sudo docker-compose build
+              sudo docker-compose up -d
+            
+              # Show running containers
+              sudo docker-compose ps
+            else
+              # Install Docker Compose
+              echo "Installing Docker Compose..."
+              sudo apt-get update
+              sudo apt-get install -y docker-compose-plugin
+            
+              # Stop and remove containers if they exist
+              sudo docker compose down
+            
+              # Build and start containers
+              sudo docker compose build
+              sudo docker compose up -d
+            
+              # Show running containers
+              sudo docker compose ps
+            fi
