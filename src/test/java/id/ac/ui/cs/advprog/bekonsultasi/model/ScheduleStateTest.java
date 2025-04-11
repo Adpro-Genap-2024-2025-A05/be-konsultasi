@@ -1,5 +1,8 @@
 package id.ac.ui.cs.advprog.bekonsultasi.model;
 
+import id.ac.ui.cs.advprog.bekonsultasi.model.schedulestate.AvailableState;
+import id.ac.ui.cs.advprog.bekonsultasi.model.schedulestate.BookedState;
+import id.ac.ui.cs.advprog.bekonsultasi.model.schedulestate.UnavailableState;
 import org.junit.jupiter.api.Test;
 import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;

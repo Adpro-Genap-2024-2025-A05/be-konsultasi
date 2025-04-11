@@ -1,5 +1,9 @@
 package id.ac.ui.cs.advprog.bekonsultasi.model;
 
+import id.ac.ui.cs.advprog.bekonsultasi.model.schedulestate.AvailableState;
+import id.ac.ui.cs.advprog.bekonsultasi.model.schedulestate.BookedState;
+import id.ac.ui.cs.advprog.bekonsultasi.model.schedulestate.ScheduleState;
+import id.ac.ui.cs.advprog.bekonsultasi.model.schedulestate.UnavailableState;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;

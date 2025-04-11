@@ -1,8 +1,8 @@
 package id.ac.ui.cs.advprog.bekonsultasi.factory;
 
-import id.ac.ui.cs.advprog.bekonsultasi.model.AvailableState;
+import id.ac.ui.cs.advprog.bekonsultasi.model.schedulestate.AvailableState;
 import id.ac.ui.cs.advprog.bekonsultasi.model.Schedule;
-import id.ac.ui.cs.advprog.bekonsultasi.model.UnavailableState;
+import id.ac.ui.cs.advprog.bekonsultasi.model.schedulestate.UnavailableState;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
