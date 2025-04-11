@@ -2,7 +2,7 @@
 
 Link: [BE-Konsultasi Deployment](https://positive-sheela-be-konsultasii-9cb5c398.koyeb.app/)
 
-# Schedule Component - BeKonsultasi Service
+# Schedule Component - BE-Konsultasi Service
 
 ## Overview
 - Dokter dapat membuat jadwal (hari dan jam) mingguan baru dengan status available. (C)
@@ -61,4 +61,81 @@ Builder Pattern (melalui anotasi Lombok `@Builder`) digunakan untuk membangun ob
 
 ### Service Layer
 - `ScheduleService.java`: Interface yang mendefinisikan business operations
-- `ScheduleServiceImpl.java`: Service implementation untuk mengelola jadwal  
+- `ScheduleServiceImpl.java`: Service implementation untuk mengelola jadwal
+
+# Konsultasi Component - BE-Konsultasi Service
+
+## Overview
+- Pasien dapat membuat permintaan konsultasi dengan dokter pada jadwal yang tersedia.
+- Pasien dan dokter dapat melihat detail dan riwayat konsultasi.
+- Dokter dapat mengkonfirmasi atau membatalkan permintaan konsultasi.
+- Pasien dapat membatalkan konsultasi (dengan batasan waktu 24 jam sebelum konsultasi).
+- Dokter dapat menandai konsultasi sebagai "telah selesai".
+- Status konsultasi mencatat seluruh siklus konsultasi, mulai dari permintaan (_requested_) hingga selesai (_done_).
+
+## Key Features
+- Mengelola permintaan konsultasi antara pasien dan dokter.
+- Menangani transisi status konsultasi.
+- Mencatat riwayat perubahan status konsultasi.
+- Menerapkan fitur pembatalan H-1.
+
+## Implemented Design Patterns - State Pattern
+
+### Komponen Struktur:
+
+- **Interface KonsultasiState**: Mendefinisikan _blueprint_ untuk semua state 
+
+  Metode: `confirm(), cancel(), complete(), reschedule(), getStateName()`
+
+
+- **Concrete States**:
+
+  - `RequestedState`: Menangani konsultasi yang baru dibuat
+  - `ConfirmedState`: Menerapkan validasi 24 jam untuk pembatalan
+  - `CancelledState`: Mencegah modifikasi pada konsultasi yang dibatalkan
+  - `DoneState`: Status final setelah konsultasi selesai
+
+
+- **Context (Konsultasi)**:
+
+  - Menyimpan referensi ke objek state saat ini
+  - Mendelegasikan permintaan ke state
+  - Memungkinkan perubahan state saat runtime
+
+### Keunggulan Implementasi:
+
+- Menghilangkan kompleksitas kondisional (if-else chains)
+- Perilaku spesifik state terenkapsulasi dalam kelas terpisah 
+- Memudahkan penambahan state baru (Open/Closed Principle)
+- Transisi state menjadi eksplisit dan terdokumentasi 
+- Meningkatkan testability karena setiap state dapat diuji secara terpisah
+
+### Transisi State:
+
+- REQUESTED → CONFIRMED (dokter menyetujui)
+- REQUESTED → CANCELLED (pasien/dokter membatalkan)
+- CONFIRMED → DONE (konsultasi selesai)
+- CONFIRMED → CANCELLED (dibatalkan, >24 jam sebelum jadwal)
+
+
+## Project Structure
+
+### Model Layer
+
+- `Konsultasi.java`: Model utama yang menyimpan data konsultasi dan state saat ini
+- `KonsultasiHistory.java`: Model untuk mencatat perubahan status konsultasi 
+- `state/KonsultasiState.java`: Interface untuk State Pattern 
+- `state/RequestedState.java`: Status permintaan awal 
+- `state/ConfirmedState.java`: Status setelah dikonfirmasi dokter 
+- `state/CancelledState.java`: Status ketika dibatalkan 
+- `state/DoneState.java`: Status setelah konsultasi selesai
+
+### Repository Layer
+
+- `KonsultasiRepository.java`: Menangani penyimpanan dan pengambilan data konsultasi 
+- `KonsultasiHistoryRepository.java`: Menangani penyimpanan dan pengambilan data history
+
+### Service Layer
+
+- `KonsultasiService.java`: Interface yang mendefinisikan operasi bisnis
+- `KonsultasiServiceImpl.java`: Implementasi service untuk mengelola konsultasi

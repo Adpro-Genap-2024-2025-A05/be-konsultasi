@@ -1,4 +1,4 @@
-package id.ac.ui.cs.advprog.bekonsultasi.model.schedulestate;
+package id.ac.ui.cs.advprog.bekonsultasi.model.ScheduleState;
 
 import id.ac.ui.cs.advprog.bekonsultasi.model.Schedule;
 
