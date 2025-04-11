@@ -1,11 +1,11 @@
-package id.ac.ui.cs.advprog.bekonsultasi.model.schedulestate;
+package id.ac.ui.cs.advprog.bekonsultasi.model.ScheduleState;
 
 import id.ac.ui.cs.advprog.bekonsultasi.model.Schedule;
 
-public class BookedState implements ScheduleState {
+public class UnavailableState implements ScheduleState {
     @Override
     public String getStatus() {
-        return "Booked";
+        return "Unavailable";
     }
 
     @Override
@@ -15,7 +15,7 @@ public class BookedState implements ScheduleState {
 
     @Override
     public void book(Schedule schedule) {
-        ScheduleState.StateHelper.throwAlreadyBooked(schedule);
+        ScheduleState.StateHelper.throwCannotBookUnavailable(schedule);
     }
 
     @Override
@@ -25,6 +25,6 @@ public class BookedState implements ScheduleState {
 
     @Override
     public void makeUnavailable(Schedule schedule) {
-        ScheduleState.StateHelper.transitionToUnavailable(schedule);
+        // Already unavailable, no change
     }
 }
