@@ -2,7 +2,7 @@
 
 Link: [BE-Konsultasi Deployment](https://positive-sheela-be-konsultasii-9cb5c398.koyeb.app/)
 
-# Schedule Component - BeKonsultasi Service
+# Schedule Component - BE-Konsultasi Service
 
 ## Overview
 - Dokter dapat membuat jadwal (hari dan jam) mingguan baru dengan status available. (C)
@@ -61,4 +61,6 @@ Builder Pattern (melalui anotasi Lombok `@Builder`) digunakan untuk membangun ob
 
 ### Service Layer
 - `ScheduleService.java`: Interface yang mendefinisikan business operations
-- `ScheduleServiceImpl.java`: Service implementation untuk mengelola jadwal  
+- `ScheduleServiceImpl.java`: Service implementation untuk mengelola jadwal
+
+# Konsultasi Component - BE-Konsultasi Service

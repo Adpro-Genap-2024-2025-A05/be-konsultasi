@@ -3,71 +3,47 @@ package id.ac.ui.cs.advprog.bekonsultasi.repository;
 import id.ac.ui.cs.advprog.bekonsultasi.model.Konsultasi;
 import org.springframework.stereotype.Repository;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 @Repository
 public class KonsultasiRepository {
-    private List<Konsultasi> konsultasiList = new ArrayList<>();
+    private final Map<String, Konsultasi> konsultasiMap = new HashMap<>();
 
     public Konsultasi save(Konsultasi konsultasi) {
         if (konsultasi.getId() == null) {
             konsultasi.setId(UUID.randomUUID().toString());
-            konsultasiList.add(konsultasi);
-        } else {
-            for (int i = 0; i < konsultasiList.size(); i++) {
-                if (konsultasiList.get(i).getId().equals(konsultasi.getId())) {
-                    konsultasiList.set(i, konsultasi);
-                    break;
-                }
-            }
         }
+        konsultasiMap.put(konsultasi.getId(), konsultasi);
         return konsultasi;
     }
 
     public Konsultasi findById(String id) {
-        for (Konsultasi konsultasi : konsultasiList) {
-            if (konsultasi.getId().equals(id)) {
-                return konsultasi;
-            }
-        }
-        return null;
+        return konsultasiMap.get(id);
     }
 
     public List<Konsultasi> findAll() {
-        return new ArrayList<>(konsultasiList);
+        return new ArrayList<>(konsultasiMap.values());
     }
 
     public List<Konsultasi> findByPaciliansId(String paciliansId) {
-        List<Konsultasi> result = new ArrayList<>();
-        for (Konsultasi konsultasi : konsultasiList) {
-            if (konsultasi.getPaciliansId().equals(paciliansId)) {
-                result.add(konsultasi);
-            }
-        }
-        return result;
+        return findByPredicate(konsultasi ->
+                Objects.equals(konsultasi.getPaciliansId(), paciliansId));
     }
 
     public List<Konsultasi> findByCareGiverId(String careGiverId) {
-        List<Konsultasi> result = new ArrayList<>();
-        for (Konsultasi konsultasi : konsultasiList) {
-            if (konsultasi.getCareGiverId().equals(careGiverId)) {
-                result.add(konsultasi);
-            }
-        }
-        return result;
+        return findByPredicate(konsultasi ->
+                Objects.equals(konsultasi.getCareGiverId(), careGiverId));
+    }
+
+    private List<Konsultasi> findByPredicate(Predicate<Konsultasi> predicate) {
+        return konsultasiMap.values().stream()
+                .filter(predicate)
+                .collect(Collectors.toList());
     }
 
     public void delete(String id) {
-        Iterator<Konsultasi> iterator = konsultasiList.iterator();
-        while (iterator.hasNext()) {
-            Konsultasi konsultasi = iterator.next();
-            if (konsultasi.getId().equals(id)) {
-                iterator.remove();
-                break;
-            }
-        }
+        konsultasiMap.remove(id);
     }
 }
