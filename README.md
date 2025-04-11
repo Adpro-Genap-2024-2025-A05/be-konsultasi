@@ -25,6 +25,8 @@ Komponen Schedule menggunakan State Pattern untuk mengelola berbagai status jadw
 - Setiap status meng-encapsulate behavior yang sesuai
 - State menangani transisi antar status
 
+State Pattern dipilih karena jadwal konsultasi memiliki beberapa status yang berbeda (Available, Booked, Unavailable) dengan perilaku yang berbeda-beda. Dengan menggunakan pattern ini, kita dapat menghindari penggunaan if-else atau switch statements yang panjang dan kompleks. Pattern ini memungkinkan kita untuk dengan mudah menambahkan status baru tanpa mengubah kode yang sudah ada, sehingga meningkatkan maintainability dan extensibility dari sistem.
+
 ### 2. Factory Pattern
 Factory Pattern digunakan untuk membuat instance Schedule:
 - Interface `ScheduleFactory` mendefinisikan creation methods
@@ -32,12 +34,16 @@ Factory Pattern digunakan untuk membuat instance Schedule:
 - Memastikan jadwal dibuat secara konsisten
 - Memusatkan creation logic dalam satu komponen
 
+Factory Pattern diimplementasikan karena pembuatan objek Schedule memerlukan beberapa langkah, terutama untuk menetapkan state yang sesuai. Dengan menggunakan pattern ini, kita dapat menyembunyikan kompleksitas pembuatan objek dari client dan memastikan bahwa setiap jadwal dibuat dengan state yang tepat. Pattern ini juga memungkinkan kita untuk memusatkan logika pembuatan objek di satu tempat, sehingga jika ada perubahan dalam cara membuat Schedule, kita hanya perlu mengubah kode di satu tempat.
+
 ### 3. Builder Pattern
 Builder Pattern (melalui anotasi Lombok `@Builder`) digunakan untuk membangun objek Schedule:
 - Memungkinkan pembuatan complex objects dengan multiple fields
 - Meningkatkan code readability dan maintainability
 - Mendukung immutability jika diperlukan
 - Menyederhanakan pembuatan objek saat testing
+
+Builder Pattern dipilih karena objek Schedule memiliki beberapa field yang harus diinisialisasi. Pattern ini membuat kode lebih bersih dan mudah dibaca dengan memungkinkan pembuatan objek secara step-by-step. Dengan menggunakan Lombok `@Builder`, kita dapat mengurangi boilerplate code yang diperlukan untuk implementasi builder. Pattern ini sangat membantu saat membuat objek untuk unit testing, di mana kita perlu membuat berbagai objek Schedule dengan nilai yang berbeda-beda. Selain itu, pattern ini memungkinkan kita untuk menciptakan objek yang immutable, yang meningkatkan thread safety dan mengurangi bug yang terkait dengan perubahan state yang tidak diinginkan.
 
 ## Project Structure (for now)
 
