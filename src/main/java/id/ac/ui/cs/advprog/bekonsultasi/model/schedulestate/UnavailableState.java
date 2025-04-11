@@ -3,7 +3,6 @@ package id.ac.ui.cs.advprog.bekonsultasi.model.ScheduleState;
 import id.ac.ui.cs.advprog.bekonsultasi.model.Schedule;
 
 public class UnavailableState implements ScheduleState {
-
     @Override
     public String getStatus() {
         return "Unavailable";
@@ -16,13 +15,12 @@ public class UnavailableState implements ScheduleState {
 
     @Override
     public void book(Schedule schedule) {
-        throw new IllegalStateException("Cannot book unavailable schedule");
+        ScheduleState.StateHelper.throwCannotBookUnavailable(schedule);
     }
 
     @Override
     public void makeAvailable(Schedule schedule) {
-        schedule.setState(new AvailableState());
-        schedule.setStatus("Available");
+        ScheduleState.StateHelper.transitionToAvailable(schedule);
     }
 
     @Override
