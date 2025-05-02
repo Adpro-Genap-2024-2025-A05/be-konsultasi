@@ -5,36 +5,38 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
-class RequestedStateTest {
+class AvailableStateTest {
     private Schedule schedule;
-    private RequestedState requestedState;
+    private AvailableState availableState;
 
     @BeforeEach
     void setUp() {
         schedule = new Schedule();
-        requestedState = new RequestedState();
+        availableState = new AvailableState();
     }
 
     @Test
-    void testGetStatusReturnsRequested() {
-        assertEquals("REQUESTED", requestedState.getStatus());
+    void testGetStatusReturnsAvailable() {
+        assertEquals("AVAILABLE", availableState.getStatus());
     }
 
     @Test
     void testApproveChangesStateToApproved() {
-        requestedState.approve(schedule);
+        availableState.approve(schedule);
         assertTrue(schedule.getState() instanceof ApprovedState);
     }
 
     @Test
     void testRejectChangesStateToRejected() {
-        requestedState.reject(schedule);
+        availableState.reject(schedule);
         assertTrue(schedule.getState() instanceof RejectedState);
     }
 
     @Test
-    void testRequestThrowsException() {
-        assertThrows(IllegalStateException.class, () ->
-                requestedState.request(schedule));
+    void testRequestThrowsUnsupportedOperationException() {
+        Exception exception = assertThrows(UnsupportedOperationException.class, () ->
+                availableState.request(schedule));
+
+        assertEquals("Request operation not supported in this version", exception.getMessage());
     }
 }

@@ -2,8 +2,6 @@ package id.ac.ui.cs.advprog.bekonsultasi.model.ScheduleState;
 
 import id.ac.ui.cs.advprog.bekonsultasi.model.Schedule;
 
-import java.util.UUID;
-
 public class RequestedState implements ScheduleState {
     @Override
     public String getStatus() {
@@ -21,7 +19,7 @@ public class RequestedState implements ScheduleState {
     }
 
     @Override
-    public void request(Schedule schedule, UUID patientId) {
+    public void request(Schedule schedule) {
         throw new IllegalStateException("Schedule is already requested");
     }
 }
