@@ -146,4 +146,55 @@ class ScheduleControllerTest {
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
         verify(scheduleService).createSchedule(createScheduleDto, caregiverId);
     }
+
+    @Test
+    void testCreateCaregiverScheduleNullAuthHeader() {
+        MockHttpServletRequest invalidRequest = new MockHttpServletRequest(); // No auth header
+
+        ResponseEntity<ScheduleResponseDto> response =
+                scheduleController.createCaregiverSchedule(createScheduleDto, invalidRequest);
+
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+        assertNull(response.getBody());
+        verify(scheduleService, never()).createSchedule(any(), any());
+    }
+
+    @Test
+    void testCreateCaregiverScheduleInvalidAuthHeader() {
+        MockHttpServletRequest invalidRequest = new MockHttpServletRequest();
+        invalidRequest.addHeader("Authorization", "InvalidToken"); // Doesn't start with "Bearer "
+
+        ResponseEntity<ScheduleResponseDto> response =
+                scheduleController.createCaregiverSchedule(createScheduleDto, invalidRequest);
+
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+        assertNull(response.getBody());
+        verify(scheduleService, never()).createSchedule(any(), any());
+    }
+
+    @Test
+    void testGetCaregiverSchedulesNullAuthHeader() {
+        MockHttpServletRequest invalidRequest = new MockHttpServletRequest(); // No auth header
+
+        ResponseEntity<List<ScheduleResponseDto>> response =
+                scheduleController.getCaregiverSchedules(invalidRequest);
+
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+        assertNull(response.getBody());
+        verify(scheduleService, never()).getCaregiverSchedules(any());
+    }
+
+    @Test
+    void testGetCaregiverSchedulesInvalidAuthHeader() {
+        MockHttpServletRequest invalidRequest = new MockHttpServletRequest();
+        invalidRequest.addHeader("Authorization", "InvalidToken"); // Doesn't start with "Bearer "
+
+        ResponseEntity<List<ScheduleResponseDto>> response =
+                scheduleController.getCaregiverSchedules(invalidRequest);
+
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+        assertNull(response.getBody());
+        verify(scheduleService, never()).getCaregiverSchedules(any());
+    }
 }
+
