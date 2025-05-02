@@ -3,131 +3,166 @@ package id.ac.ui.cs.advprog.bekonsultasi.model;
 import id.ac.ui.cs.advprog.bekonsultasi.model.KonsultasiState.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.DisplayName;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+@DisplayName("Konsultasi Tests")
 class KonsultasiTest {
 
     private Konsultasi konsultasi;
-    private UUID id;
-    private UUID scheduleId;
-    private UUID caregiverId;
-    private UUID pacilianId;
-    private LocalDateTime scheduleDateTime;
-    private String notes;
+    private TestDataBuilder dataBuilder;
 
     @BeforeEach
     void setUp() {
-        id = UUID.randomUUID();
-        scheduleId = UUID.randomUUID();
-        caregiverId = UUID.randomUUID();
-        pacilianId = UUID.randomUUID();
-        scheduleDateTime = LocalDateTime.now().plusDays(7);
-        notes = "Test notes";
-        
-        konsultasi = Konsultasi.builder()
-                .id(id)
-                .scheduleId(scheduleId)
-                .caregiverId(caregiverId)
-                .pacilianId(pacilianId)
-                .scheduleDateTime(scheduleDateTime)
-                .notes(notes)
-                .status("REQUESTED")
-                .build();
-        
-        konsultasi.setState(new RequestedState());
+        dataBuilder = new TestDataBuilder();
+        konsultasi = dataBuilder.buildDefaultKonsultasi();
     }
 
-    @Test
-    void testOnCreate() {
-        Konsultasi newKonsultasi = new Konsultasi();
-        newKonsultasi.onCreate();
+    @Nested
+    @DisplayName("Construction Tests")
+    class ConstructionTests {
+        @Test
+        @DisplayName("Should set requested state on creation")
+        void testOnCreate() {
+            Konsultasi newKonsultasi = new Konsultasi();
+            newKonsultasi.onCreate();
+            
+            assertEquals("REQUESTED", newKonsultasi.getStatus());
+            assertTrue(newKonsultasi.getState() instanceof RequestedState);
+        }
         
-        assertEquals("REQUESTED", newKonsultasi.getStatus());
-        assertTrue(newKonsultasi.getState() instanceof RequestedState);
+        @Test
+        @DisplayName("Should update state and status when state changes")
+        void testSetState() {
+            KonsultasiState newState = new ConfirmedState();
+            konsultasi.setState(newState);
+            
+            assertEquals("CONFIRMED", konsultasi.getStatus());
+            assertEquals(newState, konsultasi.getState());
+        }
     }
     
-    @Test
-    void testSetState() {
-        KonsultasiState newState = new ConfirmedState();
-        konsultasi.setState(newState);
-        
-        assertEquals("CONFIRMED", konsultasi.getStatus());
-        assertEquals(newState, konsultasi.getState());
-    }
-    
-    @Test
-    void testConfirm() {
-        konsultasi.confirm();
-        
-        assertEquals("CONFIRMED", konsultasi.getStatus());
-        assertTrue(konsultasi.getState() instanceof ConfirmedState);
-    }
-    
-    @Test
-    void testCancel() {
-        konsultasi.cancel();
-        
-        assertEquals("CANCELLED", konsultasi.getStatus());
-        assertTrue(konsultasi.getState() instanceof CancelledState);
-    }
-    
-    @Test
-    void testComplete() {
-        // First confirm to move to a state where complete is allowed
-        konsultasi.confirm();
-        konsultasi.complete();
-        
-        assertEquals("DONE", konsultasi.getStatus());
-        assertTrue(konsultasi.getState() instanceof DoneState);
-    }
-    
-    @Test
-    void testReschedule() {
-        LocalDateTime newDateTime = LocalDateTime.now().plusDays(14);
-        konsultasi.reschedule(newDateTime);
-        
-        assertEquals(newDateTime, konsultasi.getScheduleDateTime());
-    }
-    
-    @Test
-    void testIllegalStateTransition() {
-        // Set to DONE state
-        konsultasi.setState(new DoneState());
-        
-        // Attempt to confirm a completed consultation
-        Exception exception = assertThrows(IllegalStateException.class, () -> {
+    @Nested
+    @DisplayName("State Transition Tests")
+    class StateTransitionTests {
+        @Test
+        @DisplayName("Should transition to CONFIRMED state")
+        void testConfirm() {
             konsultasi.confirm();
-        });
+            
+            assertEquals("CONFIRMED", konsultasi.getStatus());
+            assertTrue(konsultasi.getState() instanceof ConfirmedState);
+        }
         
-        assertEquals("Cannot confirm a completed consultation", exception.getMessage());
+        @Test
+        @DisplayName("Should transition to CANCELLED state")
+        void testCancel() {
+            konsultasi.cancel();
+            
+            assertEquals("CANCELLED", konsultasi.getStatus());
+            assertTrue(konsultasi.getState() instanceof CancelledState);
+        }
+        
+        @Test
+        @DisplayName("Should transition to DONE state after confirmation")
+        void testComplete() {
+            konsultasi.confirm();
+            konsultasi.complete();
+            
+            assertEquals("DONE", konsultasi.getStatus());
+            assertTrue(konsultasi.getState() instanceof DoneState);
+        }
+        
+        @Test
+        @DisplayName("Should throw exception for illegal state transition")
+        void testIllegalStateTransition() {
+            konsultasi.setState(new DoneState());
+            
+            Exception exception = assertThrows(IllegalStateException.class, () -> {
+                konsultasi.confirm();
+            });
+            
+            assertEquals("Cannot confirm a completed consultation", exception.getMessage());
+        }
     }
     
-    @Test
-    void testFullStateFlow() {
-        // Initial state is REQUESTED
-        assertEquals("REQUESTED", konsultasi.getStatus());
+    @Nested
+    @DisplayName("Functionality Tests")
+    class FunctionalityTests {
+        @Test
+        @DisplayName("Should update schedule date time")
+        void testReschedule() {
+            LocalDateTime newDateTime = dataBuilder.getDefaultScheduleDateTime().plusDays(7);
+            konsultasi.reschedule(newDateTime);
+            
+            assertEquals(newDateTime, konsultasi.getScheduleDateTime());
+        }
+    }
+    
+    @Nested
+    @DisplayName("Integration Tests")
+    class IntegrationTests {
+        @Test
+        @DisplayName("Should follow complete state transition flow")
+        void testFullStateFlow() {
+            assertEquals("REQUESTED", konsultasi.getStatus());
+            
+            konsultasi.confirm();
+            assertEquals("CONFIRMED", konsultasi.getStatus());
+            
+            LocalDateTime newDateTime = dataBuilder.getDefaultScheduleDateTime().plusDays(3);
+            konsultasi.reschedule(newDateTime);
+            assertEquals(newDateTime, konsultasi.getScheduleDateTime());
+            
+            konsultasi.complete();
+            assertEquals("DONE", konsultasi.getStatus());
+            
+            Exception exception = assertThrows(IllegalStateException.class, () -> {
+                konsultasi.cancel();
+            });
+            assertEquals("Cannot cancel a completed consultation", exception.getMessage());
+        }
+    }
+    
+    private static class TestDataBuilder {
+        private UUID id;
+        private UUID scheduleId;
+        private UUID caregiverId;
+        private UUID pacilianId;
+        private LocalDateTime scheduleDateTime;
+        private String notes;
         
-        // Confirm the consultation
-        konsultasi.confirm();
-        assertEquals("CONFIRMED", konsultasi.getStatus());
+        public TestDataBuilder() {
+            this.id = UUID.randomUUID();
+            this.scheduleId = UUID.randomUUID();
+            this.caregiverId = UUID.randomUUID();
+            this.pacilianId = UUID.randomUUID();
+            this.scheduleDateTime = LocalDateTime.now().plusDays(7);
+            this.notes = "Test notes";
+        }
         
-        // Reschedule the consultation
-        LocalDateTime newDateTime = LocalDateTime.now().plusDays(10);
-        konsultasi.reschedule(newDateTime);
-        assertEquals(newDateTime, konsultasi.getScheduleDateTime());
+        public Konsultasi buildDefaultKonsultasi() {
+            Konsultasi konsultasi = Konsultasi.builder()
+                    .id(id)
+                    .scheduleId(scheduleId)
+                    .caregiverId(caregiverId)
+                    .pacilianId(pacilianId)
+                    .scheduleDateTime(scheduleDateTime)
+                    .notes(notes)
+                    .status("REQUESTED")
+                    .build();
+            
+            konsultasi.setState(new RequestedState());
+            return konsultasi;
+        }
         
-        // Complete the consultation
-        konsultasi.complete();
-        assertEquals("DONE", konsultasi.getStatus());
-        
-        // Verify that further state changes are blocked
-        Exception exception = assertThrows(IllegalStateException.class, () -> {
-            konsultasi.cancel();
-        });
-        assertEquals("Cannot cancel a completed consultation", exception.getMessage());
+        public LocalDateTime getDefaultScheduleDateTime() {
+            return this.scheduleDateTime;
+        }
     }
 }
