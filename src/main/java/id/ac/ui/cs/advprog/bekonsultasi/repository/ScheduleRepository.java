@@ -16,7 +16,7 @@ public interface ScheduleRepository extends JpaRepository<Schedule, UUID> {
     List<Schedule> findByCaregiverId(UUID caregiverId);
 
     @Query("SELECT s FROM Schedule s WHERE s.caregiverId = :caregiverId AND s.day = :day " +
-            "AND ((s.startTime <= :endTime AND s.endTime >= :startTime))")
+            "AND ((s.startTime < :endTime AND s.endTime > :startTime))")
     List<Schedule> findOverlappingSchedules(
             @Param("caregiverId") UUID caregiverId,
             @Param("day") DayOfWeek day,
