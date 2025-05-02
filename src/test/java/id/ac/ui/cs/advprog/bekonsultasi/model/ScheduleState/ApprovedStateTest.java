@@ -35,6 +35,6 @@ class ApprovedStateTest {
     @Test
     void testRequestThrowsException() {
         assertThrows(IllegalStateException.class, () ->
-                approvedState.request(schedule, null));
+                approvedState.request(schedule));
     }
 }

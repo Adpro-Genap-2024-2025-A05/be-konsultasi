@@ -35,6 +35,6 @@ class RejectedStateTest {
     @Test
     void testRequestThrowsException() {
         assertThrows(IllegalStateException.class, () ->
-                rejectedState.request(schedule, null));
+                rejectedState.request(schedule));
     }
 }

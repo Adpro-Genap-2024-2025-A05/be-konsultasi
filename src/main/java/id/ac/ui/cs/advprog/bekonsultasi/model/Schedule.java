@@ -26,9 +26,6 @@ public class Schedule {
     @Column(nullable = false)
     private UUID caregiverId;
 
-    @Column
-    private UUID patientId;
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private DayOfWeek day;
@@ -60,9 +57,5 @@ public class Schedule {
 
     public void reject() {
         state.reject(this);
-    }
-
-    public void request(UUID patientId) {
-        state.request(this, patientId);
     }
 }

@@ -11,12 +11,10 @@ import static org.junit.jupiter.api.Assertions.*;
 class ScheduleTest {
     private Schedule schedule;
     private UUID caregiverId;
-    private UUID patientId;
 
     @BeforeEach
     void setUp() {
         caregiverId = UUID.randomUUID();
-        patientId = UUID.randomUUID();
         schedule = Schedule.builder()
                 .caregiverId(caregiverId)
                 .day(DayOfWeek.MONDAY)
@@ -33,66 +31,49 @@ class ScheduleTest {
     }
 
     @Test
-    void testRequestChangesStateToRequested() {
-        schedule.request(patientId);
-        assertEquals("REQUESTED", schedule.getStatus());
-        assertTrue(schedule.getState() instanceof RequestedState);
-        assertEquals(patientId, schedule.getPatientId());
-    }
-
-    @Test
-    void testApproveFromRequestedState() {
-        schedule.request(patientId);
+    void testApproveFromAvailableState() {
         schedule.approve();
         assertEquals("APPROVED", schedule.getStatus());
         assertTrue(schedule.getState() instanceof ApprovedState);
     }
 
     @Test
-    void testRejectFromRequestedState() {
-        schedule.request(patientId);
+    void testRejectFromAvailableState() {
         schedule.reject();
         assertEquals("REJECTED", schedule.getStatus());
         assertTrue(schedule.getState() instanceof RejectedState);
     }
 
     @Test
-    void testCannotApproveAvailableState() {
+    void testCannotApproveApprovedState() {
+        schedule.approve();
         assertThrows(IllegalStateException.class, () -> schedule.approve());
     }
 
     @Test
-    void testCannotRejectAvailableState() {
+    void testCannotRejectRejectedState() {
+        schedule.reject();
         assertThrows(IllegalStateException.class, () -> schedule.reject());
     }
 
     @Test
-    void testCannotRequestApprovedState() {
-        schedule.request(patientId);
-        schedule.approve();
-        assertThrows(IllegalStateException.class, () -> schedule.request(patientId));
-    }
-
-    @Test
-    void testCannotRequestRejectedState() {
-        schedule.request(patientId);
-        schedule.reject();
-        assertThrows(IllegalStateException.class, () -> schedule.request(patientId));
-    }
-
-    @Test
     void testStatePersistsAfterSerialization() {
-        schedule.request(patientId);
+        schedule.approve();
         Schedule newSchedule = Schedule.builder()
                 .id(schedule.getId())
                 .caregiverId(schedule.getCaregiverId())
-                .patientId(schedule.getPatientId())
                 .day(schedule.getDay())
                 .startTime(schedule.getStartTime())
                 .endTime(schedule.getEndTime())
                 .status(schedule.getStatus())
                 .build();
-        newSchedule.setState(new RequestedState());
-        assertEquals("REQUESTED", newSchedule.getStatus());
+        newSchedule.setState(new ApprovedState());
+        assertEquals("APPROVED", newSchedule.getStatus());
+    }
+
+    @Test
+    void testSetStateUpdatesStatus() {
+        schedule.setState(new ApprovedState());
+        assertEquals("APPROVED", schedule.getStatus());
     }
 }
