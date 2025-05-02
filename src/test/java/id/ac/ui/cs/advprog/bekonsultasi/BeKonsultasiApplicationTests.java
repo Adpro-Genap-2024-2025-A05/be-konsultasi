@@ -17,4 +17,10 @@ class BeKonsultasiApplicationTests {
         // Verify that the Spring application context loads successfully
         assertThat(applicationContext).isNotNull();
     }
+
+    @Test
+    void testMainMethod() {
+        BeKonsultasiApplication.main(new String[]{});
+        assertThat(true).isTrue();
+    }
 }
