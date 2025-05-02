@@ -1,41 +1,68 @@
 package id.ac.ui.cs.advprog.bekonsultasi.model;
 
-import id.ac.ui.cs.advprog.bekonsultasi.model.ScheduleState.AvailableState;
-import id.ac.ui.cs.advprog.bekonsultasi.model.ScheduleState.BookedState;
 import id.ac.ui.cs.advprog.bekonsultasi.model.ScheduleState.ScheduleState;
-import id.ac.ui.cs.advprog.bekonsultasi.model.ScheduleState.UnavailableState;
+import id.ac.ui.cs.advprog.bekonsultasi.model.ScheduleState.AvailableState;
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
+import java.time.DayOfWeek;
+import java.time.LocalTime;
 import java.util.UUID;
 
+@Data
 @Builder
-@Getter
+@NoArgsConstructor
+@AllArgsConstructor
+@Entity
+@Table(name = "schedules")
 public class Schedule {
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
+
+    @Column(nullable = false)
     private UUID caregiverId;
-    private String day;
-    private String time;
 
-    @Setter
-    private String status;
+    @Column
+    private UUID patientId;
 
-    @Setter
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private DayOfWeek day;
+
+    @Column(nullable = false)
+    private LocalTime startTime;
+
+    @Column(nullable = false)
+    private LocalTime endTime;
+
+    @Transient
     private ScheduleState state;
 
-    public void changeStatus(String status) {
-        this.status = status;
-        switch (status) {
-            case "Available":
-                this.state = new AvailableState();
-                break;
-            case "Booked":
-                this.state = new BookedState();
-                break;
-            case "Unavailable":
-                this.state = new UnavailableState();
-                break;
-        }
+    @Column(nullable = false)
+    private String status;
+
+    public void setState(ScheduleState state) {
+        this.state = state;
+        this.status = state.getStatus();
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void approve() {
+        state.approve(this);
+    }
+
+    public void reject() {
+        state.reject(this);
+    }
+
+    public void request(UUID patientId) {
+        state.request(this, patientId);
     }
 }
