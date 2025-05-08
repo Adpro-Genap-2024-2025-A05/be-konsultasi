@@ -2,8 +2,12 @@ package id.ac.ui.cs.advprog.bekonsultasi.controller;
 
 import id.ac.ui.cs.advprog.bekonsultasi.dto.CreateScheduleDto;
 import id.ac.ui.cs.advprog.bekonsultasi.dto.ScheduleResponseDto;
+import id.ac.ui.cs.advprog.bekonsultasi.dto.TokenVerificationResponseDto;
+import id.ac.ui.cs.advprog.bekonsultasi.enums.Role;
+import id.ac.ui.cs.advprog.bekonsultasi.exception.AuthenticationException;
 import id.ac.ui.cs.advprog.bekonsultasi.exception.ScheduleConflictException;
 import id.ac.ui.cs.advprog.bekonsultasi.service.ScheduleService;
+import id.ac.ui.cs.advprog.bekonsultasi.service.TokenVerificationService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +27,7 @@ import java.util.UUID;
 @CrossOrigin(origins = "*")
 public class ScheduleController {
     private final ScheduleService scheduleService;
+    private final TokenVerificationService tokenVerificationService;
 
     @GetMapping("/")
     public ResponseEntity<Map<String, String>> healthCheck() {
@@ -37,27 +42,43 @@ public class ScheduleController {
             @Valid @RequestBody CreateScheduleDto scheduleDto,
             HttpServletRequest request) {
 
-        String authHeader = request.getHeader("Authorization");
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        String token = extractToken(request);
+        TokenVerificationResponseDto verification = tokenVerificationService.verifyToken(token);
+
+        if (verification.getRole() != Role.CAREGIVER) {
+            throw new AuthenticationException("Only caregivers can create schedules");
         }
 
-        UUID caregiverId = UUID.fromString("123e4567-e89b-12d3-a456-426614174000");
-
+        UUID caregiverId = UUID.fromString(verification.getUserId());
         ScheduleResponseDto response = scheduleService.createSchedule(scheduleDto, caregiverId);
+
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @GetMapping(path = "/caregiver", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<List<ScheduleResponseDto>> getCaregiverSchedules(HttpServletRequest request) {
-        String authHeader = request.getHeader("Authorization");
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+    public ResponseEntity<List<ScheduleResponseDto>> getCurrentCaregiverSchedules(HttpServletRequest request) {
+        String token = extractToken(request);
+        TokenVerificationResponseDto verification = tokenVerificationService.verifyToken(token);
+
+        if (verification.getRole() != Role.CAREGIVER) {
+            throw new AuthenticationException("Only caregivers can view their schedules");
         }
 
-        UUID caregiverId = UUID.fromString("123e4567-e89b-12d3-a456-426614174000");
+        UUID caregiverId = UUID.fromString(verification.getUserId());
+        List<ScheduleResponseDto> schedules = scheduleService.getCaregiverSchedules(caregiverId);
+
+        return ResponseEntity.ok(schedules);
+    }
+
+    @GetMapping(path = "/caregiver/{caregiverId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<List<ScheduleResponseDto>> getCaregiverSchedulesById(
+            @PathVariable UUID caregiverId,
+            HttpServletRequest request) {
+
+        verifyToken(request);
 
         List<ScheduleResponseDto> schedules = scheduleService.getCaregiverSchedules(caregiverId);
+
         return ResponseEntity.ok(schedules);
     }
 
@@ -74,5 +95,25 @@ public class ScheduleController {
         errorResponse.put("error", ex.getMessage());
         errorResponse.put("errorType", "SCHEDULE_CONFLICT");
         return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<Map<String, String>> handleAuthenticationException(AuthenticationException ex) {
+        Map<String, String> errorResponse = new HashMap<>();
+        errorResponse.put("error", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
+    }
+
+    private String extractToken(HttpServletRequest request) {
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            throw new AuthenticationException("Authorization header is missing or invalid");
+        }
+        return authHeader.substring(7);
+    }
+
+    private void verifyToken(HttpServletRequest request) {
+        String token = extractToken(request);
+        tokenVerificationService.verifyToken(token);
     }
 }
