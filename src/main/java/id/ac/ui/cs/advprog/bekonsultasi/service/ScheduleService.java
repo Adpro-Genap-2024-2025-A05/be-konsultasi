@@ -9,4 +9,5 @@ import java.util.UUID;
 public interface ScheduleService {
     ScheduleResponseDto createSchedule(CreateScheduleDto dto, UUID caregiverId);
     List<ScheduleResponseDto> getCaregiverSchedules(UUID caregiverId);
+    void updateScheduleStatus(UUID scheduleId, String status);
 }

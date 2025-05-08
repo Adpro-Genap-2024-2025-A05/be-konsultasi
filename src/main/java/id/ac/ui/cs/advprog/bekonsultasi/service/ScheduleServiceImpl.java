@@ -78,4 +78,19 @@ public class ScheduleServiceImpl implements ScheduleService {
                 .status(schedule.getStatus())
                 .build();
     }
+    @Override
+    public void updateScheduleStatus(UUID scheduleId, String status) {
+        Schedule schedule = scheduleRepository.findById(scheduleId)
+                .orElseThrow(() -> new IllegalArgumentException("Schedule not found with id: " + scheduleId));
+
+        switch (status) {
+            case "REQUESTED" -> schedule.setState(new RequestedState());
+            case "APPROVED" -> schedule.setState(new ApprovedState());
+            case "REJECTED" -> schedule.setState(new RejectedState());
+            case "AVAILABLE" -> schedule.setState(new AvailableState());
+            default -> throw new IllegalArgumentException("Invalid status: " + status);
+        }
+
+        scheduleRepository.save(schedule);
+    }
 }
