@@ -22,6 +22,8 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.mockito.MockitoAnnotations.openMocks;
 
@@ -348,6 +350,79 @@ class KonsultasiControllerTest {
             assertEquals("CONFIRMED", response.getBody().get(0).getNewStatus());
             verify(tokenVerificationService).verifyToken(token);
             verify(konsultasiService).getKonsultasiHistory(konsultasiId);
+        }
+    }
+
+    @Nested
+    class RescheduleAcceptRejectTests {
+        @Test
+        void testAcceptReschedule_Success() {
+            when(tokenVerificationService.verifyToken(token)).thenReturn(tokenResponse);
+            
+            KonsultasiResponseDto confirmedResponse = KonsultasiResponseDto.builder()
+                    .id(konsultasiId)
+                    .status("CONFIRMED")
+                    .build();
+            
+            when(konsultasiService.acceptReschedule(eq(konsultasiId), any(UUID.class)))
+                    .thenReturn(confirmedResponse);
+            
+            ResponseEntity<KonsultasiResponseDto> response = 
+                    konsultasiController.acceptReschedule(konsultasiId, request);
+            
+            assertEquals(HttpStatus.OK, response.getStatusCode());
+            assertEquals("CONFIRMED", response.getBody().getStatus());
+            verify(tokenVerificationService).verifyToken(token);
+            verify(konsultasiService).acceptReschedule(eq(konsultasiId), any(UUID.class));
+        }
+        
+        @Test
+        void testAcceptReschedule_InvalidRole() {
+            tokenResponse.setRole(Role.PACILIAN);
+            when(tokenVerificationService.verifyToken(token)).thenReturn(tokenResponse);
+            
+            Exception exception = assertThrows(AuthenticationException.class, () -> {
+                konsultasiController.acceptReschedule(konsultasiId, request);
+            });
+            
+            assertEquals("Only caregivers can accept rescheduled consultations", exception.getMessage());
+            verify(tokenVerificationService).verifyToken(token);
+            verify(konsultasiService, never()).acceptReschedule(any(), any());
+        }
+        
+        @Test
+        void testRejectReschedule_Success() {
+            when(tokenVerificationService.verifyToken(token)).thenReturn(tokenResponse);
+            
+            KonsultasiResponseDto requestedResponse = KonsultasiResponseDto.builder()
+                    .id(konsultasiId)
+                    .status("REQUESTED")
+                    .build();
+            
+            when(konsultasiService.rejectReschedule(eq(konsultasiId), any(UUID.class)))
+                    .thenReturn(requestedResponse);
+            
+            ResponseEntity<KonsultasiResponseDto> response = 
+                    konsultasiController.rejectReschedule(konsultasiId, request);
+            
+            assertEquals(HttpStatus.OK, response.getStatusCode());
+            assertEquals("REQUESTED", response.getBody().getStatus());
+            verify(tokenVerificationService).verifyToken(token);
+            verify(konsultasiService).rejectReschedule(eq(konsultasiId), any(UUID.class));
+        }
+        
+        @Test
+        void testRejectReschedule_InvalidRole() {
+            tokenResponse.setRole(Role.PACILIAN);
+            when(tokenVerificationService.verifyToken(token)).thenReturn(tokenResponse);
+            
+            Exception exception = assertThrows(AuthenticationException.class, () -> {
+                konsultasiController.rejectReschedule(konsultasiId, request);
+            });
+            
+            assertEquals("Only caregivers can reject rescheduled consultations", exception.getMessage());
+            verify(tokenVerificationService).verifyToken(token);
+            verify(konsultasiService, never()).rejectReschedule(any(), any());
         }
     }
     
