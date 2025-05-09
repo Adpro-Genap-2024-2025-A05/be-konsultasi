@@ -6,7 +6,6 @@ import id.ac.ui.cs.advprog.bekonsultasi.exception.ScheduleConflictException;
 import id.ac.ui.cs.advprog.bekonsultasi.model.Schedule;
 import id.ac.ui.cs.advprog.bekonsultasi.model.ScheduleState.AvailableState;
 import id.ac.ui.cs.advprog.bekonsultasi.model.ScheduleState.ApprovedState;
-import id.ac.ui.cs.advprog.bekonsultasi.model.ScheduleState.RejectedState;
 import id.ac.ui.cs.advprog.bekonsultasi.model.ScheduleState.RequestedState;
 import id.ac.ui.cs.advprog.bekonsultasi.repository.ScheduleRepository;
 import id.ac.ui.cs.advprog.bekonsultasi.service.factory.ScheduleFactory;
@@ -58,7 +57,6 @@ public class ScheduleServiceImpl implements ScheduleService {
                 case "AVAILABLE" -> schedule.setState(new AvailableState());
                 case "REQUESTED" -> schedule.setState(new RequestedState());
                 case "APPROVED" -> schedule.setState(new ApprovedState());
-                case "REJECTED" -> schedule.setState(new RejectedState());
                 default -> throw new IllegalStateException("Unknown schedule status: " + schedule.getStatus());
             }
         });
@@ -78,6 +76,7 @@ public class ScheduleServiceImpl implements ScheduleService {
                 .status(schedule.getStatus())
                 .build();
     }
+
     @Override
     public void updateScheduleStatus(UUID scheduleId, String status) {
         Schedule schedule = scheduleRepository.findById(scheduleId)
@@ -86,7 +85,6 @@ public class ScheduleServiceImpl implements ScheduleService {
         switch (status) {
             case "REQUESTED" -> schedule.setState(new RequestedState());
             case "APPROVED" -> schedule.setState(new ApprovedState());
-            case "REJECTED" -> schedule.setState(new RejectedState());
             case "AVAILABLE" -> schedule.setState(new AvailableState());
             default -> throw new IllegalArgumentException("Invalid status: " + status);
         }

@@ -107,19 +107,15 @@ class ScheduleServiceImplTest {
         Schedule approved = new Schedule();
         approved.setStatus("APPROVED");
 
-        Schedule rejected = new Schedule();
-        rejected.setStatus("REJECTED");
-
         when(scheduleRepository.findByCaregiverId(caregiverId))
-                .thenReturn(List.of(available, requested, approved, rejected));
+                .thenReturn(List.of(available, requested, approved));
 
         List<ScheduleResponseDto> results = scheduleService.getCaregiverSchedules(caregiverId);
 
-        assertEquals(4, results.size());
+        assertEquals(3, results.size());
         assertEquals("AVAILABLE", results.get(0).getStatus());
         assertEquals("REQUESTED", results.get(1).getStatus());
         assertEquals("APPROVED", results.get(2).getStatus());
-        assertEquals("REJECTED", results.get(3).getStatus());
     }
 
     @Test

@@ -62,18 +62,6 @@ public class ScheduleController {
         return ResponseEntity.ok(schedules);
     }
 
-    @GetMapping(path = "/caregiver/{caregiverId}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<List<ScheduleResponseDto>> getCaregiverSchedulesById(
-            @PathVariable UUID caregiverId,
-            HttpServletRequest request) {
-
-        verifyToken(request);
-
-        List<ScheduleResponseDto> schedules = scheduleService.getCaregiverSchedules(caregiverId);
-
-        return ResponseEntity.ok(schedules);
-    }
-
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> handleIllegalArgumentException(IllegalArgumentException ex) {
         Map<String, String> errorResponse = new HashMap<>();

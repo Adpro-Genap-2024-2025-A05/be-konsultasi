@@ -154,42 +154,6 @@ class ScheduleControllerTest {
     }
 
     @Test
-    void getCaregiverSchedulesById_shouldReturnSchedulesForSpecificCaregiver() {
-        UUID requestedCaregiverId = UUID.randomUUID();
-        UUID loggedInUserId = UUID.randomUUID();
-
-        TokenVerificationResponseDto tokenDto = TokenVerificationResponseDto.builder()
-                .valid(true)
-                .userId(loggedInUserId.toString())
-                .role(Role.PACILIAN)
-                .build();
-
-        List<ScheduleResponseDto> expectedSchedules = Arrays.asList(
-                ScheduleResponseDto.builder()
-                        .id(UUID.randomUUID())
-                        .caregiverId(requestedCaregiverId)
-                        .day(DayOfWeek.MONDAY)
-                        .startTime(LocalTime.of(9, 0))
-                        .endTime(LocalTime.of(10, 0))
-                        .status("AVAILABLE")
-                        .build()
-        );
-
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        request.addHeader("Authorization", "Bearer validToken");
-
-        when(tokenVerificationService.verifyToken("validToken")).thenReturn(tokenDto);
-        when(scheduleService.getCaregiverSchedules(requestedCaregiverId)).thenReturn(expectedSchedules);
-
-        ResponseEntity<List<ScheduleResponseDto>> response = scheduleController.getCaregiverSchedulesById(requestedCaregiverId, request);
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(expectedSchedules, response.getBody());
-        verify(tokenVerificationService).verifyToken("validToken");
-        verify(scheduleService).getCaregiverSchedules(requestedCaregiverId);
-    }
-
-    @Test
     void getCurrentCaregiverSchedules_shouldThrowExceptionForNonCaregivers() {
         TokenVerificationResponseDto tokenDto = TokenVerificationResponseDto.builder()
                 .valid(true)
