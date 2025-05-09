@@ -17,7 +17,5 @@ class ScheduleStateTest {
         state = new ApprovedState();
         assertEquals("APPROVED", state.getStatus());
 
-        state = new RejectedState();
-        assertEquals("REJECTED", state.getStatus());
     }
 }

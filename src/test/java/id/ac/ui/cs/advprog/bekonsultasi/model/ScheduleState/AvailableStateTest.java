@@ -27,12 +27,6 @@ class AvailableStateTest {
     }
 
     @Test
-    void testRejectChangesStateToRejected() {
-        availableState.reject(schedule);
-        assertTrue(schedule.getState() instanceof RejectedState);
-    }
-
-    @Test
     void testRequestThrowsUnsupportedOperationException() {
         Exception exception = assertThrows(UnsupportedOperationException.class, () ->
                 availableState.request(schedule));

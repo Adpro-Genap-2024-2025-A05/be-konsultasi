@@ -27,12 +27,6 @@ class RequestedStateTest {
     }
 
     @Test
-    void testRejectChangesStateToRejected() {
-        requestedState.reject(schedule);
-        assertTrue(schedule.getState() instanceof RejectedState);
-    }
-
-    @Test
     void testRequestThrowsException() {
         assertThrows(IllegalStateException.class, () ->
                 requestedState.request(schedule));

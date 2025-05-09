@@ -14,11 +14,6 @@ public class ApprovedState implements ScheduleState {
     }
 
     @Override
-    public void reject(Schedule schedule) {
-        throw new IllegalStateException("Cannot reject an already approved schedule");
-    }
-
-    @Override
     public void request(Schedule schedule) {
         throw new IllegalStateException("Schedule is already approved");
     }

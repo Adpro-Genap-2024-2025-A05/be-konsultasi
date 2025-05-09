@@ -14,11 +14,6 @@ public class RequestedState implements ScheduleState {
     }
 
     @Override
-    public void reject(Schedule schedule) {
-        schedule.setState(new RejectedState());
-    }
-
-    @Override
     public void request(Schedule schedule) {
         throw new IllegalStateException("Schedule is already requested");
     }

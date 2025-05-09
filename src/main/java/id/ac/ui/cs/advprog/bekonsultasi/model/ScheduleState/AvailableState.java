@@ -14,11 +14,6 @@ public class AvailableState implements ScheduleState {
     }
 
     @Override
-    public void reject(Schedule schedule) {
-        schedule.setState(new RejectedState());
-    }
-
-    @Override
     public void request(Schedule schedule) {
         throw new UnsupportedOperationException("Request operation not supported in this version");
     }

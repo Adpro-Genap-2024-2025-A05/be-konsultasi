@@ -55,7 +55,4 @@ public class Schedule {
         state.approve(this);
     }
 
-    public void reject() {
-        state.reject(this);
-    }
 }

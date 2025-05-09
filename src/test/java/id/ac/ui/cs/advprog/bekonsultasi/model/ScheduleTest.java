@@ -38,22 +38,9 @@ class ScheduleTest {
     }
 
     @Test
-    void testRejectFromAvailableState() {
-        schedule.reject();
-        assertEquals("REJECTED", schedule.getStatus());
-        assertTrue(schedule.getState() instanceof RejectedState);
-    }
-
-    @Test
     void testCannotApproveApprovedState() {
         schedule.approve();
         assertThrows(IllegalStateException.class, () -> schedule.approve());
-    }
-
-    @Test
-    void testCannotRejectRejectedState() {
-        schedule.reject();
-        assertThrows(IllegalStateException.class, () -> schedule.reject());
     }
 
     @Test

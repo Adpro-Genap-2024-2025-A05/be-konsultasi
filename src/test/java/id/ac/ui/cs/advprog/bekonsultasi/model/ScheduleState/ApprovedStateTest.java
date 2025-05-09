@@ -27,12 +27,6 @@ class ApprovedStateTest {
     }
 
     @Test
-    void testRejectThrowsException() {
-        assertThrows(IllegalStateException.class, () ->
-                approvedState.reject(schedule));
-    }
-
-    @Test
     void testRequestThrowsException() {
         assertThrows(IllegalStateException.class, () ->
                 approvedState.request(schedule));
