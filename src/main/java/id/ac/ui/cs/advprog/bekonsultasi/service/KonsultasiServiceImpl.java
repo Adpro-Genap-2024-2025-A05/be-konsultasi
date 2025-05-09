@@ -57,6 +57,10 @@ public class KonsultasiServiceImpl implements KonsultasiService {
         Konsultasi konsultasi = findKonsultasiById(konsultasiId);
         validateUserRoleAndOwnership(konsultasi, caregiverId, "CAREGIVER");
 
+        if ("RESCHEDULED".equals(konsultasi.getStatus())) {
+            throw new ScheduleException("Rescheduled consultations must be accepted or rejected through the appropriate endpoints");
+        }
+
         initializeState(konsultasi);
         String previousStatus = konsultasi.getStatus();
 
