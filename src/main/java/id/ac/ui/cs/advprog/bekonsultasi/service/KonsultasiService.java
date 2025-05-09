@@ -10,6 +10,8 @@ public interface KonsultasiService {
     KonsultasiResponseDto confirmKonsultasi(UUID konsultasiId, UUID caregiverId);
     KonsultasiResponseDto cancelKonsultasi(UUID konsultasiId, UUID userId, String role);
     KonsultasiResponseDto completeKonsultasi(UUID konsultasiId, UUID caregiverId);
+    KonsultasiResponseDto acceptReschedule(UUID konsultasiId, UUID caregiverId);
+    KonsultasiResponseDto rejectReschedule(UUID konsultasiId, UUID caregiverId);
     KonsultasiResponseDto rescheduleKonsultasi(UUID konsultasiId, RescheduleKonsultasiDto dto, UUID userId, String role);
     KonsultasiResponseDto getKonsultasiById(UUID konsultasiId);
     List<KonsultasiResponseDto> getKonsultasiByPacilianId(UUID pacilianId);
