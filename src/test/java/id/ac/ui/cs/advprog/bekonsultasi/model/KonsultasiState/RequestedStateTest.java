@@ -12,6 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.mockito.MockitoAnnotations.openMocks;
 
 class RequestedStateTest {
@@ -49,15 +50,22 @@ class RequestedStateTest {
         Exception exception = assertThrows(IllegalStateException.class, () -> {
             requestedState.complete(konsultasi);
         });
-        
-        assertEquals("Cannot complete a consultation that's in requested state", exception.getMessage());
+
+        assertEquals("Cannot complete a consultation that is still in requested state", exception.getMessage());
         verify(konsultasi, never()).setState(any());
     }
 
     @Test
     void testReschedule() {
+        LocalDateTime originalDateTime = LocalDateTime.now().plusDays(3);
         LocalDateTime newDateTime = LocalDateTime.now().plusDays(5);
+
+        when(konsultasi.getScheduleDateTime()).thenReturn(originalDateTime);
+
         requestedState.reschedule(konsultasi, newDateTime);
+
+        verify(konsultasi).setOriginalScheduleDateTime(originalDateTime);
         verify(konsultasi).setScheduleDateTime(newDateTime);
+        verify(konsultasi).setState(any(RescheduledState.class));
     }
 }
