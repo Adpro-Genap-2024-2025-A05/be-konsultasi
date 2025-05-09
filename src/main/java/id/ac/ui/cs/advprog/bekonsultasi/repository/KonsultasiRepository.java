@@ -13,4 +13,5 @@ public interface KonsultasiRepository extends JpaRepository<Konsultasi, UUID> {
     List<Konsultasi> findByCaregiverId(UUID caregiverId);
     List<Konsultasi> findByScheduleId(UUID scheduleId);
     List<Konsultasi> findByStatusAndCaregiverId(String status, UUID caregiverId);
+    List<Konsultasi> findByPacilianIdAndStatusNotIn(UUID pacilianId, List<String> excludeStatuses);
 }
