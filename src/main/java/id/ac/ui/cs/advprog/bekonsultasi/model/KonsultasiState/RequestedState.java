@@ -23,11 +23,15 @@ public class RequestedState implements KonsultasiState {
 
     @Override
     public void complete(Konsultasi konsultasi) {
-        throw new IllegalStateException("Cannot complete a consultation that's in requested state");
+        throw new IllegalStateException("Cannot complete a consultation that is still in requested state");
     }
 
     @Override
     public void reschedule(Konsultasi konsultasi, LocalDateTime newDateTime) {
+        LocalDateTime originalDateTime = konsultasi.getScheduleDateTime();
+        konsultasi.setOriginalScheduleDateTime(originalDateTime);
+
         konsultasi.setScheduleDateTime(newDateTime);
+        konsultasi.setState(new RescheduledState());
     }
 }
