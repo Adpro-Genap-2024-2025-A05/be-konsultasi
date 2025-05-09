@@ -34,6 +34,9 @@ public class Konsultasi {
     @Column(nullable = false)
     private LocalDateTime scheduleDateTime;
 
+    @Column
+    private LocalDateTime originalScheduleDateTime;
+
     @Column(columnDefinition = "TEXT")
     private String notes;
 
@@ -70,5 +73,13 @@ public class Konsultasi {
 
     public void reschedule(LocalDateTime newDateTime) {
         state.reschedule(this, newDateTime);
+    }
+
+    public LocalDateTime getOriginalScheduleDateTime() {
+        return originalScheduleDateTime;
+    }
+    
+    public void setOriginalScheduleDateTime(LocalDateTime originalScheduleDateTime) {
+        this.originalScheduleDateTime = originalScheduleDateTime;
     }
 }
