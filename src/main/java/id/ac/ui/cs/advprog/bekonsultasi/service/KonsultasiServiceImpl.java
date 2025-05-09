@@ -36,6 +36,23 @@ public class KonsultasiServiceImpl implements KonsultasiService {
         validateScheduleAvailability(schedule);
 
         LocalDateTime scheduleDateTime = calculateNextDateTimeForSchedule(schedule);
+
+        List<String> completedStatuses = List.of("CANCELLED", "DONE");
+        List<Konsultasi> activeKonsultations = konsultasiRepository.findByPacilianIdAndStatusNotIn(
+                pacilianId, completedStatuses);
+
+        for (Konsultasi existingKonsultasi : activeKonsultations) {
+            LocalDateTime existingStart = existingKonsultasi.getScheduleDateTime();
+            LocalDateTime existingEnd = existingStart.plusHours(1);
+
+            LocalDateTime newEnd = scheduleDateTime.plusHours(1);
+
+            if ((scheduleDateTime.isBefore(existingEnd) || scheduleDateTime.isEqual(existingEnd)) &&
+                    (newEnd.isAfter(existingStart) || newEnd.isEqual(existingStart))) {
+                throw new ScheduleException("You already have another consultation scheduled at this time");
+            }
+        }
+
         Konsultasi konsultasi = buildNewKonsultasi(dto, pacilianId, schedule, scheduleDateTime);
 
         Konsultasi savedKonsultasi = konsultasiRepository.save(konsultasi);
@@ -56,6 +73,11 @@ public class KonsultasiServiceImpl implements KonsultasiService {
     public KonsultasiResponseDto confirmKonsultasi(UUID konsultasiId, UUID caregiverId) {
         Konsultasi konsultasi = findKonsultasiById(konsultasiId);
         validateUserRoleAndOwnership(konsultasi, caregiverId, "CAREGIVER");
+
+        if ("RESCHEDULED".equals(konsultasi.getStatus())) {
+            throw new ScheduleException(
+                    "Rescheduled consultations must be accepted or rejected through the appropriate endpoints");
+        }
 
         initializeState(konsultasi);
         String previousStatus = konsultasi.getStatus();
