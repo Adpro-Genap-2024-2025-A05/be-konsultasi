@@ -32,38 +32,22 @@ public class KonsultasiServiceImpl implements KonsultasiService {
     @Override
     @Transactional
     public KonsultasiResponseDto createKonsultasi(CreateKonsultasiDto dto, UUID pacilianId) {
-        Schedule schedule = scheduleRepository.findById(dto.getScheduleId())
-                .orElseThrow(() -> new ScheduleException("Schedule not found"));
-
-        if (!"AVAILABLE".equals(schedule.getStatus())) {
-            throw new ScheduleException("Schedule is not available");
-        }
+        Schedule schedule = findScheduleById(dto.getScheduleId());
+        validateScheduleAvailability(schedule);
 
         LocalDateTime scheduleDateTime = calculateNextDateTimeForSchedule(schedule);
-
-        Konsultasi konsultasi = Konsultasi.builder()
-                .scheduleId(dto.getScheduleId())
-                .caregiverId(schedule.getCaregiverId())
-                .pacilianId(pacilianId)
-                .scheduleDateTime(scheduleDateTime)
-                .notes(dto.getNotes())
-                .status("REQUESTED")
-                .build();
-
-        konsultasi.setState(new RequestedState());
+        Konsultasi konsultasi = buildNewKonsultasi(dto, pacilianId, schedule, scheduleDateTime);
+        
         Konsultasi savedKonsultasi = konsultasiRepository.save(konsultasi);
-
         scheduleService.updateScheduleStatus(dto.getScheduleId(), "REQUESTED");
-
-        KonsultasiHistory history = KonsultasiHistory.builder()
-                .konsultasiId(savedKonsultasi.getId())
-                .previousStatus("NONE")
-                .newStatus("REQUESTED")
-                .modifiedBy(pacilianId)
-                .notes("Consultation requested")
-                .build();
-
-        historyRepository.save(history);
+        
+        createKonsultasiHistory(
+            savedKonsultasi.getId(), 
+            "NONE", 
+            "REQUESTED", 
+            pacilianId, 
+            "Consultation requested"
+        );
 
         return convertToResponseDto(savedKonsultasi);
     }
@@ -71,26 +55,24 @@ public class KonsultasiServiceImpl implements KonsultasiService {
     @Override
     @Transactional
     public KonsultasiResponseDto confirmKonsultasi(UUID konsultasiId, UUID caregiverId) {
-        Konsultasi konsultasi = findAndValidateKonsultasi(konsultasiId, caregiverId);
+        Konsultasi konsultasi = findKonsultasiById(konsultasiId);
+        validateUserRoleAndOwnership(konsultasi, caregiverId, "CAREGIVER");
+        
         initializeState(konsultasi);
-
         String previousStatus = konsultasi.getStatus();
 
         try {
             konsultasi.confirm();
             Konsultasi savedKonsultasi = konsultasiRepository.save(konsultasi);
-
             scheduleService.updateScheduleStatus(savedKonsultasi.getScheduleId(), "APPROVED");
-
-            KonsultasiHistory history = KonsultasiHistory.builder()
-                    .konsultasiId(konsultasiId)
-                    .previousStatus(previousStatus)
-                    .newStatus(savedKonsultasi.getStatus())
-                    .modifiedBy(caregiverId)
-                    .notes("Consultation confirmed by caregiver")
-                    .build();
-
-            historyRepository.save(history);
+            
+            createKonsultasiHistory(
+                konsultasiId, 
+                previousStatus, 
+                savedKonsultasi.getStatus(), 
+                caregiverId, 
+                "Consultation confirmed by caregiver"
+            );
 
             return convertToResponseDto(savedKonsultasi);
         } catch (IllegalStateException e) {
@@ -101,21 +83,9 @@ public class KonsultasiServiceImpl implements KonsultasiService {
     @Override
     @Transactional
     public KonsultasiResponseDto cancelKonsultasi(UUID konsultasiId, UUID userId, String role) {
-        Konsultasi konsultasi = konsultasiRepository.findById(konsultasiId)
-                .orElseThrow(() -> new ScheduleException("Consultation not found"));
-
-        if (!"CAREGIVER".equals(role) && !"PACILIAN".equals(role)) {
-            throw new ScheduleException("Invalid role");
-        }
-
-        if ("CAREGIVER".equals(role) && !konsultasi.getCaregiverId().equals(userId)) {
-            throw new ScheduleException("You are not authorized to cancel this consultation");
-        }
-
-        if ("PACILIAN".equals(role) && !konsultasi.getPacilianId().equals(userId)) {
-            throw new ScheduleException("You are not authorized to cancel this consultation");
-        }
-
+        Konsultasi konsultasi = findKonsultasiById(konsultasiId);
+        validateUserRoleAndOwnership(konsultasi, userId, role);
+        
         initializeState(konsultasi);
         String previousStatus = konsultasi.getStatus();
 
@@ -127,15 +97,13 @@ public class KonsultasiServiceImpl implements KonsultasiService {
                 scheduleService.updateScheduleStatus(savedKonsultasi.getScheduleId(), "AVAILABLE");
             }
 
-            KonsultasiHistory history = KonsultasiHistory.builder()
-                    .konsultasiId(konsultasiId)
-                    .previousStatus(previousStatus)
-                    .newStatus(savedKonsultasi.getStatus())
-                    .modifiedBy(userId)
-                    .notes("Consultation cancelled by " + role.toLowerCase())
-                    .build();
-
-            historyRepository.save(history);
+            createKonsultasiHistory(
+                konsultasiId, 
+                previousStatus, 
+                savedKonsultasi.getStatus(), 
+                userId, 
+                "Consultation cancelled by " + role.toLowerCase()
+            );
 
             return convertToResponseDto(savedKonsultasi);
         } catch (IllegalStateException e) {
@@ -146,26 +114,24 @@ public class KonsultasiServiceImpl implements KonsultasiService {
     @Override
     @Transactional
     public KonsultasiResponseDto completeKonsultasi(UUID konsultasiId, UUID caregiverId) {
-        Konsultasi konsultasi = findAndValidateKonsultasi(konsultasiId, caregiverId);
+        Konsultasi konsultasi = findKonsultasiById(konsultasiId);
+        validateUserRoleAndOwnership(konsultasi, caregiverId, "CAREGIVER");
+        
         initializeState(konsultasi);
-
         String previousStatus = konsultasi.getStatus();
 
         try {
             konsultasi.complete();
             Konsultasi savedKonsultasi = konsultasiRepository.save(konsultasi);
-
             scheduleService.updateScheduleStatus(savedKonsultasi.getScheduleId(), "AVAILABLE");
-
-            KonsultasiHistory history = KonsultasiHistory.builder()
-                    .konsultasiId(konsultasiId)
-                    .previousStatus(previousStatus)
-                    .newStatus(savedKonsultasi.getStatus())
-                    .modifiedBy(caregiverId)
-                    .notes("Consultation completed")
-                    .build();
-
-            historyRepository.save(history);
+            
+            createKonsultasiHistory(
+                konsultasiId, 
+                previousStatus, 
+                savedKonsultasi.getStatus(), 
+                caregiverId, 
+                "Consultation completed"
+            );
 
             return convertToResponseDto(savedKonsultasi);
         } catch (IllegalStateException e) {
@@ -176,21 +142,9 @@ public class KonsultasiServiceImpl implements KonsultasiService {
     @Override
     @Transactional
     public KonsultasiResponseDto rescheduleKonsultasi(UUID konsultasiId, RescheduleKonsultasiDto dto, UUID userId, String role) {
-        Konsultasi konsultasi = konsultasiRepository.findById(konsultasiId)
-                .orElseThrow(() -> new ScheduleException("Consultation not found"));
-
-        if (!"CAREGIVER".equals(role) && !"PACILIAN".equals(role)) {
-            throw new ScheduleException("Invalid role");
-        }
-
-        if ("CAREGIVER".equals(role) && !konsultasi.getCaregiverId().equals(userId)) {
-            throw new ScheduleException("You are not authorized to reschedule this consultation");
-        }
-
-        if ("PACILIAN".equals(role) && !konsultasi.getPacilianId().equals(userId)) {
-            throw new ScheduleException("You are not authorized to reschedule this consultation");
-        }
-
+        Konsultasi konsultasi = findKonsultasiById(konsultasiId);
+        validateUserRoleAndOwnership(konsultasi, userId, role);
+        
         initializeState(konsultasi);
         String previousStatus = konsultasi.getStatus();
 
@@ -198,15 +152,13 @@ public class KonsultasiServiceImpl implements KonsultasiService {
             konsultasi.reschedule(dto.getNewScheduleDateTime());
             Konsultasi savedKonsultasi = konsultasiRepository.save(konsultasi);
 
-            KonsultasiHistory history = KonsultasiHistory.builder()
-                    .konsultasiId(konsultasiId)
-                    .previousStatus(previousStatus)
-                    .newStatus(savedKonsultasi.getStatus())
-                    .modifiedBy(userId)
-                    .notes("Consultation rescheduled by " + role.toLowerCase() + ": " + dto.getNotes())
-                    .build();
-
-            historyRepository.save(history);
+            createKonsultasiHistory(
+                konsultasiId, 
+                previousStatus, 
+                savedKonsultasi.getStatus(), 
+                userId, 
+                "Consultation rescheduled by " + role.toLowerCase() + ": " + dto.getNotes()
+            );
 
             return convertToResponseDto(savedKonsultasi);
         } catch (IllegalStateException e) {
@@ -216,59 +168,64 @@ public class KonsultasiServiceImpl implements KonsultasiService {
 
     @Override
     public KonsultasiResponseDto getKonsultasiById(UUID konsultasiId) {
-        Konsultasi konsultasi = konsultasiRepository.findById(konsultasiId)
-                .orElseThrow(() -> new ScheduleException("Consultation not found"));
-
-        return convertToResponseDto(konsultasi);
+        return convertToResponseDto(findKonsultasiById(konsultasiId));
     }
 
     @Override
     public List<KonsultasiResponseDto> getKonsultasiByPacilianId(UUID pacilianId) {
-        List<Konsultasi> konsultasiList = konsultasiRepository.findByPacilianId(pacilianId);
-
-        return konsultasiList.stream()
-                .map(this::convertToResponseDto)
-                .collect(Collectors.toList());
+        return convertToDtoList(konsultasiRepository.findByPacilianId(pacilianId));
     }
 
     @Override
     public List<KonsultasiResponseDto> getKonsultasiByCaregiverId(UUID caregiverId) {
-        List<Konsultasi> konsultasiList = konsultasiRepository.findByCaregiverId(caregiverId);
-
-        return konsultasiList.stream()
-                .map(this::convertToResponseDto)
-                .collect(Collectors.toList());
+        return convertToDtoList(konsultasiRepository.findByCaregiverId(caregiverId));
     }
 
     @Override
     public List<KonsultasiResponseDto> getRequestedKonsultasiByCaregiverId(UUID caregiverId) {
-        List<Konsultasi> konsultasiList = konsultasiRepository.findByStatusAndCaregiverId("REQUESTED", caregiverId);
-
-        return konsultasiList.stream()
-                .map(this::convertToResponseDto)
-                .collect(Collectors.toList());
+        return convertToDtoList(konsultasiRepository.findByStatusAndCaregiverId("REQUESTED", caregiverId));
     }
 
     @Override
     public List<KonsultasiHistoryDto> getKonsultasiHistory(UUID konsultasiId) {
         List<KonsultasiHistory> historyList = historyRepository.findByKonsultasiIdOrderByTimestampDesc(konsultasiId);
-
         return historyList.stream()
                 .map(this::convertToHistoryDto)
                 .collect(Collectors.toList());
     }
-
-    private Konsultasi findAndValidateKonsultasi(UUID konsultasiId, UUID caregiverId) {
-        Konsultasi konsultasi = konsultasiRepository.findById(konsultasiId)
+    
+    private Schedule findScheduleById(UUID scheduleId) {
+        return scheduleRepository.findById(scheduleId)
+                .orElseThrow(() -> new ScheduleException("Schedule not found"));
+    }
+    
+    private Konsultasi findKonsultasiById(UUID konsultasiId) {
+        return konsultasiRepository.findById(konsultasiId)
                 .orElseThrow(() -> new ScheduleException("Consultation not found"));
-
-        if (!konsultasi.getCaregiverId().equals(caregiverId)) {
-            throw new ScheduleException("You are not authorized to modify this consultation");
-        }
-
-        return konsultasi;
     }
 
+    private void validateUserRoleAndOwnership(Konsultasi konsultasi, UUID userId, String role) {
+        if (!"CAREGIVER".equals(role) && !"PACILIAN".equals(role)) {
+            throw new ScheduleException("Invalid role: " + role);
+        }
+
+        if ("CAREGIVER".equals(role)) {
+            if (!konsultasi.getCaregiverId().equals(userId)) {
+                throw new ScheduleException("You are not the caregiver for this consultation");
+            }
+        } else if ("PACILIAN".equals(role)) {
+            if (!konsultasi.getPacilianId().equals(userId)) {
+                throw new ScheduleException("You are not the patient for this consultation");
+            }
+        }
+    }
+
+    private void validateScheduleAvailability(Schedule schedule) {
+        if (!"AVAILABLE".equals(schedule.getStatus())) {
+            throw new ScheduleException("Schedule is not available");
+        }
+    }
+    
     private void initializeState(Konsultasi konsultasi) {
         switch (konsultasi.getStatus()) {
             case "REQUESTED" -> konsultasi.setState(new RequestedState());
@@ -277,6 +234,34 @@ public class KonsultasiServiceImpl implements KonsultasiService {
             case "DONE" -> konsultasi.setState(new DoneState());
             default -> throw new IllegalStateException("Unknown consultation status: " + konsultasi.getStatus());
         }
+    }
+
+    private Konsultasi buildNewKonsultasi(CreateKonsultasiDto dto, UUID pacilianId, 
+                                         Schedule schedule, LocalDateTime scheduleDateTime) {
+        Konsultasi konsultasi = Konsultasi.builder()
+                .scheduleId(dto.getScheduleId())
+                .caregiverId(schedule.getCaregiverId())
+                .pacilianId(pacilianId)
+                .scheduleDateTime(scheduleDateTime)
+                .notes(dto.getNotes())
+                .status("REQUESTED")
+                .build();
+
+        konsultasi.setState(new RequestedState());
+        return konsultasi;
+    }
+    
+    private void createKonsultasiHistory(UUID konsultasiId, String previousStatus, 
+                                        String newStatus, UUID modifiedBy, String notes) {
+        KonsultasiHistory history = KonsultasiHistory.builder()
+                .konsultasiId(konsultasiId)
+                .previousStatus(previousStatus)
+                .newStatus(newStatus)
+                .modifiedBy(modifiedBy)
+                .notes(notes)
+                .build();
+
+        historyRepository.save(history);
     }
 
     private LocalDateTime calculateNextDateTimeForSchedule(Schedule schedule) {
@@ -295,6 +280,12 @@ public class KonsultasiServiceImpl implements KonsultasiService {
         }
 
         return targetDateTime;
+    }
+
+    private List<KonsultasiResponseDto> convertToDtoList(List<Konsultasi> konsultasiList) {
+        return konsultasiList.stream()
+                .map(this::convertToResponseDto)
+                .collect(Collectors.toList());
     }
 
     private KonsultasiResponseDto convertToResponseDto(Konsultasi konsultasi) {
