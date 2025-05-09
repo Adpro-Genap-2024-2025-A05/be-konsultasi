@@ -60,7 +60,7 @@ class KonsultasiStateTest {
         Exception exception = assertThrows(IllegalStateException.class, () -> {
             requestedState.complete(konsultasi);
         });
-        assertEquals("Cannot complete a consultation that's in requested state", exception.getMessage());
+        assertEquals("Cannot complete a consultation that is still in requested state", exception.getMessage());
     }
     
     @Test
