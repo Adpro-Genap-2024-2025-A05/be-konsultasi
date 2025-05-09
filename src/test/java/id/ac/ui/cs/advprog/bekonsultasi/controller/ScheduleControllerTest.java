@@ -45,16 +45,6 @@ class ScheduleControllerTest {
     }
 
     @Test
-    void healthCheck_shouldReturnOkStatus() {
-        ResponseEntity<Map<String, String>> response = scheduleController.healthCheck();
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertEquals("UP", response.getBody().get("status"));
-        assertEquals("Consultation Schedule API", response.getBody().get("service"));
-    }
-
-    @Test
     void createCaregiverSchedule_shouldReturnCreatedSchedule() {
         CreateScheduleDto dto = CreateScheduleDto.builder()
                 .day(DayOfWeek.MONDAY)

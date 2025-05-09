@@ -22,20 +22,12 @@ import java.util.Map;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/")
+@RequestMapping("/schedule")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*")
 public class ScheduleController {
     private final ScheduleService scheduleService;
     private final TokenVerificationService tokenVerificationService;
-
-    @GetMapping("/")
-    public ResponseEntity<Map<String, String>> healthCheck() {
-        Map<String, String> status = new HashMap<>();
-        status.put("status", "UP");
-        status.put("service", "Consultation Schedule API");
-        return ResponseEntity.ok(status);
-    }
 
     @PostMapping(path = "/caregiver", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ScheduleResponseDto> createCaregiverSchedule(
