@@ -15,7 +15,7 @@ public class HomeController {
     public ResponseEntity<Map<String, String>> healthCheck() {
         Map<String, String> status = new HashMap<>();
         status.put("status", "UP");
-        status.put("service", "BeKonsultasi API");
+        status.put("service", "Back-End Konsultasi API");
         return ResponseEntity.ok(status);
     }
 }

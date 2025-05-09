@@ -27,7 +27,7 @@ class HomeControllerTest {
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
         assertEquals("UP", response.getBody().get("status"));
-        assertEquals("BeKonsultasi API", response.getBody().get("service"));
+        assertEquals("Back-End Konsultasi API", response.getBody().get("service"));
     }
     
     @Test
