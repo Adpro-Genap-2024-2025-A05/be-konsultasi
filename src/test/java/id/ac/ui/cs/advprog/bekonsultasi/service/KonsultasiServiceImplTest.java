@@ -280,6 +280,34 @@ class KonsultasiServiceImplTest {
         }
 
         @Test
+        void confirmKonsultasi_shouldThrowExceptionIfInRescheduledState() {
+        UUID konsultasiId = UUID.randomUUID();
+        UUID caregiverId = UUID.randomUUID();
+        UUID scheduleId = UUID.randomUUID();
+
+        Konsultasi konsultasi = Konsultasi.builder()
+                .id(konsultasiId)
+                .scheduleId(scheduleId)
+                .caregiverId(caregiverId)
+                .pacilianId(UUID.randomUUID())
+                .scheduleDateTime(LocalDateTime.now().plusDays(7))
+                .notes("Test notes")
+                .status("RESCHEDULED")  
+                .build();
+
+        when(konsultasiRepository.findById(konsultasiId)).thenReturn(Optional.of(konsultasi));
+
+        assertThrows(ScheduleException.class, () -> {
+                konsultasiService.confirmKonsultasi(konsultasiId, caregiverId);
+        });
+
+        verify(konsultasiRepository).findById(konsultasiId);
+        verify(konsultasiRepository, never()).save(any(Konsultasi.class));
+        verify(historyRepository, never()).save(any(KonsultasiHistory.class));
+        verify(scheduleService, never()).updateScheduleStatus(any(UUID.class), anyString());
+        }
+
+        @Test
         void rescheduleKonsultasi_shouldRescheduleKonsultasi() {
                 UUID konsultasiId = UUID.randomUUID();
                 UUID caregiverId = UUID.randomUUID();
