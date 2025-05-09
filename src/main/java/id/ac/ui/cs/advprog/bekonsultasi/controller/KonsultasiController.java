@@ -33,14 +33,14 @@ public class KonsultasiController {
             HttpServletRequest request) {
         String token = extractToken(request);
         TokenVerificationResponseDto verification = tokenVerificationService.verifyToken(token);
-        
+
         if (verification.getRole() != Role.PACILIAN) {
             throw new AuthenticationException("Only pacilians can create consultations");
         }
-        
+
         UUID pacilianId = UUID.fromString(verification.getUserId());
         KonsultasiResponseDto response = konsultasiService.createKonsultasi(dto, pacilianId);
-        
+
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -50,14 +50,14 @@ public class KonsultasiController {
             HttpServletRequest request) {
         String token = extractToken(request);
         TokenVerificationResponseDto verification = tokenVerificationService.verifyToken(token);
-        
+
         if (verification.getRole() != Role.CAREGIVER) {
             throw new AuthenticationException("Only caregivers can confirm consultations");
         }
-        
+
         UUID caregiverId = UUID.fromString(verification.getUserId());
         KonsultasiResponseDto response = konsultasiService.confirmKonsultasi(konsultasiId, caregiverId);
-        
+
         return ResponseEntity.ok(response);
     }
 
@@ -67,12 +67,12 @@ public class KonsultasiController {
             HttpServletRequest request) {
         String token = extractToken(request);
         TokenVerificationResponseDto verification = tokenVerificationService.verifyToken(token);
-        
+
         UUID userId = UUID.fromString(verification.getUserId());
         String role = verification.getRole().name();
-        
+
         KonsultasiResponseDto response = konsultasiService.cancelKonsultasi(konsultasiId, userId, role);
-        
+
         return ResponseEntity.ok(response);
     }
 
@@ -82,14 +82,48 @@ public class KonsultasiController {
             HttpServletRequest request) {
         String token = extractToken(request);
         TokenVerificationResponseDto verification = tokenVerificationService.verifyToken(token);
-        
+
         if (verification.getRole() != Role.CAREGIVER) {
             throw new AuthenticationException("Only caregivers can complete consultations");
         }
-        
+
         UUID caregiverId = UUID.fromString(verification.getUserId());
         KonsultasiResponseDto response = konsultasiService.completeKonsultasi(konsultasiId, caregiverId);
-        
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping(path = "/{konsultasiId}/accept-reschedule", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<KonsultasiResponseDto> acceptReschedule(
+            @PathVariable UUID konsultasiId,
+            HttpServletRequest request) {
+        String token = extractToken(request);
+        TokenVerificationResponseDto verification = tokenVerificationService.verifyToken(token);
+
+        if (verification.getRole() != Role.CAREGIVER) {
+            throw new AuthenticationException("Only caregivers can accept rescheduled consultations");
+        }
+
+        UUID caregiverId = UUID.fromString(verification.getUserId());
+        KonsultasiResponseDto response = konsultasiService.acceptReschedule(konsultasiId, caregiverId);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping(path = "/{konsultasiId}/reject-reschedule", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<KonsultasiResponseDto> rejectReschedule(
+            @PathVariable UUID konsultasiId,
+            HttpServletRequest request) {
+        String token = extractToken(request);
+        TokenVerificationResponseDto verification = tokenVerificationService.verifyToken(token);
+
+        if (verification.getRole() != Role.CAREGIVER) {
+            throw new AuthenticationException("Only caregivers can reject rescheduled consultations");
+        }
+
+        UUID caregiverId = UUID.fromString(verification.getUserId());
+        KonsultasiResponseDto response = konsultasiService.rejectReschedule(konsultasiId, caregiverId);
+
         return ResponseEntity.ok(response);
     }
 
@@ -100,12 +134,12 @@ public class KonsultasiController {
             HttpServletRequest request) {
         String token = extractToken(request);
         TokenVerificationResponseDto verification = tokenVerificationService.verifyToken(token);
-        
+
         UUID userId = UUID.fromString(verification.getUserId());
         String role = verification.getRole().name();
-        
+
         KonsultasiResponseDto response = konsultasiService.rescheduleKonsultasi(konsultasiId, dto, userId, role);
-        
+
         return ResponseEntity.ok(response);
     }
 
@@ -114,9 +148,9 @@ public class KonsultasiController {
             @PathVariable UUID konsultasiId,
             HttpServletRequest request) {
         verifyToken(request);
-        
+
         KonsultasiResponseDto response = konsultasiService.getKonsultasiById(konsultasiId);
-        
+
         return ResponseEntity.ok(response);
     }
 
@@ -125,14 +159,14 @@ public class KonsultasiController {
             HttpServletRequest request) {
         String token = extractToken(request);
         TokenVerificationResponseDto verification = tokenVerificationService.verifyToken(token);
-        
+
         if (verification.getRole() != Role.PACILIAN) {
             throw new AuthenticationException("Only pacilians can view their consultations");
         }
-        
+
         UUID pacilianId = UUID.fromString(verification.getUserId());
         List<KonsultasiResponseDto> response = konsultasiService.getKonsultasiByPacilianId(pacilianId);
-        
+
         return ResponseEntity.ok(response);
     }
 
@@ -141,14 +175,14 @@ public class KonsultasiController {
             HttpServletRequest request) {
         String token = extractToken(request);
         TokenVerificationResponseDto verification = tokenVerificationService.verifyToken(token);
-        
+
         if (verification.getRole() != Role.CAREGIVER) {
             throw new AuthenticationException("Only caregivers can view their consultations");
         }
-        
+
         UUID caregiverId = UUID.fromString(verification.getUserId());
         List<KonsultasiResponseDto> response = konsultasiService.getKonsultasiByCaregiverId(caregiverId);
-        
+
         return ResponseEntity.ok(response);
     }
 
@@ -157,14 +191,14 @@ public class KonsultasiController {
             HttpServletRequest request) {
         String token = extractToken(request);
         TokenVerificationResponseDto verification = tokenVerificationService.verifyToken(token);
-        
+
         if (verification.getRole() != Role.CAREGIVER) {
             throw new AuthenticationException("Only caregivers can view their requested consultations");
         }
-        
+
         UUID caregiverId = UUID.fromString(verification.getUserId());
         List<KonsultasiResponseDto> response = konsultasiService.getRequestedKonsultasiByCaregiverId(caregiverId);
-        
+
         return ResponseEntity.ok(response);
     }
 
@@ -173,9 +207,9 @@ public class KonsultasiController {
             @PathVariable UUID konsultasiId,
             HttpServletRequest request) {
         verifyToken(request);
-        
+
         List<KonsultasiHistoryDto> response = konsultasiService.getKonsultasiHistory(konsultasiId);
-        
+
         return ResponseEntity.ok(response);
     }
 
