@@ -56,7 +56,7 @@ public class KonsultasiServiceImpl implements KonsultasiService {
         Konsultasi konsultasi = buildNewKonsultasi(dto, pacilianId, schedule, scheduleDateTime);
 
         Konsultasi savedKonsultasi = konsultasiRepository.save(konsultasi);
-        scheduleService.updateScheduleStatus(dto.getScheduleId(), "REQUESTED");
+        scheduleService.updateScheduleStatus(dto.getScheduleId(), "UNAVAILABLE");
 
         createKonsultasiHistory(
                 savedKonsultasi.getId(),
@@ -85,7 +85,6 @@ public class KonsultasiServiceImpl implements KonsultasiService {
         try {
             konsultasi.confirm();
             Konsultasi savedKonsultasi = konsultasiRepository.save(konsultasi);
-            scheduleService.updateScheduleStatus(savedKonsultasi.getScheduleId(), "APPROVED");
 
             createKonsultasiHistory(
                     konsultasiId,
@@ -162,7 +161,7 @@ public class KonsultasiServiceImpl implements KonsultasiService {
     @Override
     @Transactional
     public KonsultasiResponseDto rescheduleKonsultasi(UUID konsultasiId, RescheduleKonsultasiDto dto, UUID userId,
-            String role) {
+                                                      String role) {
         Konsultasi konsultasi = findKonsultasiById(konsultasiId);
         validateUserRoleAndOwnership(konsultasi, userId, role);
 
@@ -207,8 +206,6 @@ public class KonsultasiServiceImpl implements KonsultasiService {
         try {
             konsultasi.confirm();
             Konsultasi savedKonsultasi = konsultasiRepository.save(konsultasi);
-
-            scheduleService.updateScheduleStatus(savedKonsultasi.getScheduleId(), "APPROVED");
 
             createKonsultasiHistory(
                     konsultasiId,
@@ -327,7 +324,7 @@ public class KonsultasiServiceImpl implements KonsultasiService {
     }
 
     private Konsultasi buildNewKonsultasi(CreateKonsultasiDto dto, UUID pacilianId,
-            Schedule schedule, LocalDateTime scheduleDateTime) {
+                                          Schedule schedule, LocalDateTime scheduleDateTime) {
         Konsultasi konsultasi = Konsultasi.builder()
                 .scheduleId(dto.getScheduleId())
                 .caregiverId(schedule.getCaregiverId())
@@ -342,7 +339,7 @@ public class KonsultasiServiceImpl implements KonsultasiService {
     }
 
     private void createKonsultasiHistory(UUID konsultasiId, String previousStatus,
-            String newStatus, UUID modifiedBy, String notes) {
+                                         String newStatus, UUID modifiedBy, String notes) {
         KonsultasiHistory history = KonsultasiHistory.builder()
                 .konsultasiId(konsultasiId)
                 .previousStatus(previousStatus)
