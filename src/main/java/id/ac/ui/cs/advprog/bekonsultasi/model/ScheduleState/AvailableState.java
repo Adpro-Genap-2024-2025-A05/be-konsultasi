@@ -9,12 +9,11 @@ public class AvailableState implements ScheduleState {
     }
 
     @Override
-    public void approve(Schedule schedule) {
-        schedule.setState(new ApprovedState());
+    public void makeAvailable(Schedule schedule) {
     }
 
     @Override
-    public void request(Schedule schedule) {
-        throw new UnsupportedOperationException("Request operation not supported in this version");
+    public void makeUnavailable(Schedule schedule) {
+        schedule.setState(new UnavailableState());
     }
 }

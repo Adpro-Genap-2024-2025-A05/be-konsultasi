@@ -42,6 +42,14 @@ public class Schedule {
     @Column(nullable = false)
     private String status;
 
+    @PrePersist
+    public void onCreate() {
+        if (status == null) {
+            status = "AVAILABLE";
+            state = new AvailableState();
+        }
+    }
+
     public void setState(ScheduleState state) {
         this.state = state;
         this.status = state.getStatus();
@@ -51,8 +59,11 @@ public class Schedule {
         return status;
     }
 
-    public void approve() {
-        state.approve(this);
+    public void makeAvailable() {
+        state.makeAvailable(this);
     }
 
+    public void makeUnavailable() {
+        state.makeUnavailable(this);
+    }
 }

@@ -5,8 +5,7 @@ import id.ac.ui.cs.advprog.bekonsultasi.dto.ScheduleResponseDto;
 import id.ac.ui.cs.advprog.bekonsultasi.exception.ScheduleConflictException;
 import id.ac.ui.cs.advprog.bekonsultasi.model.Schedule;
 import id.ac.ui.cs.advprog.bekonsultasi.model.ScheduleState.AvailableState;
-import id.ac.ui.cs.advprog.bekonsultasi.model.ScheduleState.ApprovedState;
-import id.ac.ui.cs.advprog.bekonsultasi.model.ScheduleState.RequestedState;
+import id.ac.ui.cs.advprog.bekonsultasi.model.ScheduleState.UnavailableState;
 import id.ac.ui.cs.advprog.bekonsultasi.repository.ScheduleRepository;
 import id.ac.ui.cs.advprog.bekonsultasi.service.factory.ScheduleFactory;
 import lombok.RequiredArgsConstructor;
@@ -99,8 +98,7 @@ public class ScheduleServiceImpl implements ScheduleService {
     private void initializeScheduleState(Schedule schedule) {
         switch (schedule.getStatus()) {
             case "AVAILABLE" -> schedule.setState(new AvailableState());
-            case "REQUESTED" -> schedule.setState(new RequestedState());
-            case "APPROVED" -> schedule.setState(new ApprovedState());
+            case "UNAVAILABLE" -> schedule.setState(new UnavailableState());
             default -> throw new IllegalStateException("Unknown schedule status: " + schedule.getStatus());
         }
     }
@@ -125,21 +123,21 @@ public class ScheduleServiceImpl implements ScheduleService {
     @Override
     public void updateScheduleStatus(UUID scheduleId, String status) {
         Schedule schedule = findScheduleById(scheduleId);
-        updateScheduleState(schedule, status);
+        initializeScheduleState(schedule);
+
+        if ("AVAILABLE".equals(status)) {
+            schedule.makeAvailable();
+        } else if ("UNAVAILABLE".equals(status)) {
+            schedule.makeUnavailable();
+        } else {
+            throw new IllegalArgumentException("Invalid status: " + status);
+        }
+
         scheduleRepository.save(schedule);
     }
 
     private Schedule findScheduleById(UUID scheduleId) {
         return scheduleRepository.findById(scheduleId)
                 .orElseThrow(() -> new IllegalArgumentException("Schedule not found with id: " + scheduleId));
-    }
-
-    private void updateScheduleState(Schedule schedule, String status) {
-        switch (status) {
-            case "REQUESTED" -> schedule.setState(new RequestedState());
-            case "APPROVED" -> schedule.setState(new ApprovedState());
-            case "AVAILABLE" -> schedule.setState(new AvailableState());
-            default -> throw new IllegalArgumentException("Invalid status: " + status);
-        }
     }
 }

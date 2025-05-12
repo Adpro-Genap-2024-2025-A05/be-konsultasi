@@ -4,6 +4,6 @@ import id.ac.ui.cs.advprog.bekonsultasi.model.Schedule;
 
 public interface ScheduleState {
     String getStatus();
-    void approve(Schedule schedule);
-    void request(Schedule schedule);
+    void makeAvailable(Schedule schedule);
+    void makeUnavailable(Schedule schedule);
 }
