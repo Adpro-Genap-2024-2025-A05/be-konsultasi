@@ -3,34 +3,38 @@ package id.ac.ui.cs.advprog.bekonsultasi.model.ScheduleState;
 import id.ac.ui.cs.advprog.bekonsultasi.model.Schedule;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.*;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.verify;
 
 class AvailableStateTest {
-    private Schedule schedule;
-    private AvailableState availableState;
+
+    AvailableState availableState;
+
+    @Mock
+    Schedule schedule;
 
     @BeforeEach
     void setUp() {
-        schedule = new Schedule();
+        MockitoAnnotations.openMocks(this);
         availableState = new AvailableState();
     }
 
     @Test
-    void testGetStatusReturnsAvailable() {
+    void testGetStatus() {
         assertEquals("AVAILABLE", availableState.getStatus());
     }
 
     @Test
-    void testApproveChangesStateToApproved() {
-        availableState.approve(schedule);
-        assertTrue(schedule.getState() instanceof ApprovedState);
+    void testMakeAvailable() {
+        availableState.makeAvailable(schedule);
     }
 
     @Test
-    void testRequestThrowsUnsupportedOperationException() {
-        Exception exception = assertThrows(UnsupportedOperationException.class, () ->
-                availableState.request(schedule));
-
-        assertEquals("Request operation not supported in this version", exception.getMessage());
+    void testMakeUnavailable() {
+        availableState.makeUnavailable(schedule);
+        verify(schedule).setState(org.mockito.ArgumentMatchers.any(UnavailableState.class));
     }
 }

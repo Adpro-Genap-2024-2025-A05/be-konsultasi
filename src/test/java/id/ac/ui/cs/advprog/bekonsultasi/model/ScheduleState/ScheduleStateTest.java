@@ -1,21 +1,40 @@
 package id.ac.ui.cs.advprog.bekonsultasi.model.ScheduleState;
 
 import id.ac.ui.cs.advprog.bekonsultasi.model.Schedule;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.*;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.verify;
 
 class ScheduleStateTest {
+
+    private AvailableState availableState;
+    private UnavailableState unavailableState;
+
+    @Mock
+    private Schedule schedule;
+
+    @BeforeEach
+    void setUp() {
+        MockitoAnnotations.openMocks(this);
+        availableState = new AvailableState();
+        unavailableState = new UnavailableState();
+    }
+
     @Test
-    void testScheduleStateInterface() {
-        ScheduleState state = new AvailableState();
-        assertNotNull(state);
-        assertEquals("AVAILABLE", state.getStatus());
+    void testAvailableStateTransitions() {
+        assertEquals("AVAILABLE", availableState.getStatus());
+        availableState.makeUnavailable(schedule);
+        verify(schedule).setState(org.mockito.ArgumentMatchers.any(UnavailableState.class));
+    }
 
-        state = new RequestedState();
-        assertEquals("REQUESTED", state.getStatus());
-
-        state = new ApprovedState();
-        assertEquals("APPROVED", state.getStatus());
-
+    @Test
+    void testUnavailableStateTransitions() {
+        assertEquals("UNAVAILABLE", unavailableState.getStatus());
+        unavailableState.makeAvailable(schedule);
+        verify(schedule).setState(org.mockito.ArgumentMatchers.any(AvailableState.class));
     }
 }
