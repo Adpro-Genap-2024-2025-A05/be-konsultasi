@@ -2,14 +2,19 @@ package id.ac.ui.cs.advprog.bekonsultasi.service;
 
 import id.ac.ui.cs.advprog.bekonsultasi.dto.CreateScheduleDto;
 import id.ac.ui.cs.advprog.bekonsultasi.dto.ScheduleResponseDto;
+import id.ac.ui.cs.advprog.bekonsultasi.exception.AuthenticationException;
 import id.ac.ui.cs.advprog.bekonsultasi.exception.ScheduleConflictException;
+import id.ac.ui.cs.advprog.bekonsultasi.exception.ScheduleException;
+import id.ac.ui.cs.advprog.bekonsultasi.model.Konsultasi;
 import id.ac.ui.cs.advprog.bekonsultasi.model.Schedule;
 import id.ac.ui.cs.advprog.bekonsultasi.model.ScheduleState.AvailableState;
 import id.ac.ui.cs.advprog.bekonsultasi.model.ScheduleState.UnavailableState;
+import id.ac.ui.cs.advprog.bekonsultasi.repository.KonsultasiRepository;
 import id.ac.ui.cs.advprog.bekonsultasi.repository.ScheduleRepository;
 import id.ac.ui.cs.advprog.bekonsultasi.service.factory.ScheduleFactory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
@@ -21,6 +26,7 @@ import java.time.LocalTime;
 @RequiredArgsConstructor
 public class ScheduleServiceImpl implements ScheduleService {
     private final ScheduleRepository scheduleRepository;
+    private final KonsultasiRepository konsultasiRepository;
     private final ScheduleFactory scheduleFactory;
 
     @Override
@@ -33,6 +39,65 @@ public class ScheduleServiceImpl implements ScheduleService {
         Schedule schedule = scheduleFactory.createSchedule(dto, caregiverId);
         Schedule savedSchedule = scheduleRepository.save(schedule);
         return convertToDto(savedSchedule);
+    }
+
+    @Override
+    @Transactional
+    public ScheduleResponseDto updateSchedule(UUID scheduleId, CreateScheduleDto dto, UUID caregiverId) {
+        Schedule schedule = findScheduleById(scheduleId);
+
+        // Verify ownership
+        if (!schedule.getCaregiverId().equals(caregiverId)) {
+            throw new AuthenticationException("You can only update your own schedules");
+        }
+
+        // Check if schedule is currently in use
+        if ("UNAVAILABLE".equals(schedule.getStatus())) {
+            List<Konsultasi> activeKonsultations = konsultasiRepository.findByScheduleId(scheduleId);
+            if (!activeKonsultations.isEmpty()) {
+                throw new ScheduleException("Cannot update schedule that is currently used in active consultations");
+            }
+        }
+
+        validateScheduleTimes(dto);
+
+        // Check for conflicts with other schedules (excluding the current one being updated)
+        List<Schedule> otherCaregiverSchedules = scheduleRepository.findByCaregiverId(caregiverId).stream()
+                .filter(s -> !s.getId().equals(scheduleId))
+                .collect(Collectors.toList());
+
+        validateNoOverlappingSchedules(otherCaregiverSchedules, dto, caregiverId);
+
+        // Update schedule properties
+        schedule.setDay(dto.getDay());
+        schedule.setStartTime(dto.getStartTime());
+        schedule.setEndTime(dto.getEndTime());
+
+        Schedule updatedSchedule = scheduleRepository.save(schedule);
+        return convertToDto(updatedSchedule);
+    }
+
+    @Override
+    @Transactional
+    public void deleteSchedule(UUID scheduleId, UUID caregiverId) {
+        Schedule schedule = findScheduleById(scheduleId);
+
+        // Verify ownership
+        if (!schedule.getCaregiverId().equals(caregiverId)) {
+            throw new AuthenticationException("You can only delete your own schedules");
+        }
+
+        // Check for active konsultasi linked to this schedule
+        List<Konsultasi> linkedKonsultations = konsultasiRepository.findByScheduleId(scheduleId);
+
+        boolean hasActiveKonsultasi = linkedKonsultations.stream()
+                .anyMatch(k -> !k.getStatus().equals("CANCELLED") && !k.getStatus().equals("DONE"));
+
+        if (hasActiveKonsultasi) {
+            throw new ScheduleException("Cannot delete schedule with active consultations");
+        }
+
+        scheduleRepository.deleteById(scheduleId);
     }
 
     private void validateScheduleTimes(CreateScheduleDto dto) {
@@ -87,6 +152,13 @@ public class ScheduleServiceImpl implements ScheduleService {
     @Override
     public List<ScheduleResponseDto> getCaregiverSchedules(UUID caregiverId) {
         List<Schedule> schedules = scheduleRepository.findByCaregiverId(caregiverId);
+        initializeScheduleStates(schedules);
+        return convertToResponseDtoList(schedules);
+    }
+
+    @Override
+    public List<ScheduleResponseDto> getAllSchedules() {
+        List<Schedule> schedules = scheduleRepository.findAll();
         initializeScheduleStates(schedules);
         return convertToResponseDtoList(schedules);
     }
