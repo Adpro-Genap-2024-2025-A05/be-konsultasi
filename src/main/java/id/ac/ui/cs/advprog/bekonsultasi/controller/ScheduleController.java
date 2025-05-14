@@ -1,11 +1,13 @@
 package id.ac.ui.cs.advprog.bekonsultasi.controller;
 
+import id.ac.ui.cs.advprog.bekonsultasi.dto.BaseResponseDto;
 import id.ac.ui.cs.advprog.bekonsultasi.dto.CreateScheduleDto;
 import id.ac.ui.cs.advprog.bekonsultasi.dto.ScheduleResponseDto;
 import id.ac.ui.cs.advprog.bekonsultasi.dto.TokenVerificationResponseDto;
 import id.ac.ui.cs.advprog.bekonsultasi.enums.Role;
 import id.ac.ui.cs.advprog.bekonsultasi.exception.AuthenticationException;
 import id.ac.ui.cs.advprog.bekonsultasi.exception.ScheduleConflictException;
+import id.ac.ui.cs.advprog.bekonsultasi.exception.ScheduleException;
 import id.ac.ui.cs.advprog.bekonsultasi.service.ScheduleService;
 import id.ac.ui.cs.advprog.bekonsultasi.service.TokenVerificationService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -16,9 +18,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -30,7 +30,7 @@ public class ScheduleController {
     private final TokenVerificationService tokenVerificationService;
 
     @PostMapping(path = "/caregiver", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<ScheduleResponseDto> createCaregiverSchedule(
+    public ResponseEntity<BaseResponseDto<ScheduleResponseDto>> createCaregiverSchedule(
             @Valid @RequestBody CreateScheduleDto scheduleDto,
             HttpServletRequest request) {
 
@@ -44,11 +44,49 @@ public class ScheduleController {
         UUID caregiverId = UUID.fromString(verification.getUserId());
         ScheduleResponseDto response = scheduleService.createSchedule(scheduleDto, caregiverId);
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(BaseResponseDto.created(response));
+    }
+
+    @PutMapping(path = "/caregiver/{scheduleId}", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<BaseResponseDto<ScheduleResponseDto>> updateCaregiverSchedule(
+            @PathVariable UUID scheduleId,
+            @Valid @RequestBody CreateScheduleDto scheduleDto,
+            HttpServletRequest request) {
+
+        String token = extractToken(request);
+        TokenVerificationResponseDto verification = tokenVerificationService.verifyToken(token);
+
+        if (verification.getRole() != Role.CAREGIVER) {
+            throw new AuthenticationException("Only caregivers can update schedules");
+        }
+
+        UUID caregiverId = UUID.fromString(verification.getUserId());
+        ScheduleResponseDto response = scheduleService.updateSchedule(scheduleId, scheduleDto, caregiverId);
+
+        return ResponseEntity.ok(BaseResponseDto.success(response, "Schedule updated successfully"));
+    }
+
+    @DeleteMapping(path = "/caregiver/{scheduleId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<BaseResponseDto<Object>> deleteCaregiverSchedule(
+            @PathVariable UUID scheduleId,
+            HttpServletRequest request) {
+
+        String token = extractToken(request);
+        TokenVerificationResponseDto verification = tokenVerificationService.verifyToken(token);
+
+        if (verification.getRole() != Role.CAREGIVER) {
+            throw new AuthenticationException("Only caregivers can delete schedules");
+        }
+
+        UUID caregiverId = UUID.fromString(verification.getUserId());
+        scheduleService.deleteSchedule(scheduleId, caregiverId);
+
+        return ResponseEntity.ok(BaseResponseDto.success(null, "Schedule deleted successfully"));
     }
 
     @GetMapping(path = "/caregiver", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<List<ScheduleResponseDto>> getCurrentCaregiverSchedules(HttpServletRequest request) {
+    public ResponseEntity<BaseResponseDto<List<ScheduleResponseDto>>> getCurrentCaregiverSchedules(HttpServletRequest request) {
         String token = extractToken(request);
         TokenVerificationResponseDto verification = tokenVerificationService.verifyToken(token);
 
@@ -59,29 +97,42 @@ public class ScheduleController {
         UUID caregiverId = UUID.fromString(verification.getUserId());
         List<ScheduleResponseDto> schedules = scheduleService.getCaregiverSchedules(caregiverId);
 
-        return ResponseEntity.ok(schedules);
+        return ResponseEntity.ok(BaseResponseDto.success(schedules, "Retrieved caregiver schedules"));
+    }
+
+    @GetMapping(path = "/caregiver/{caregiverId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<BaseResponseDto<List<ScheduleResponseDto>>> getCaregiverSchedulesByIdParam(
+            @PathVariable UUID caregiverId,
+            HttpServletRequest request) {
+
+        verifyToken(request);
+        List<ScheduleResponseDto> schedules = scheduleService.getCaregiverSchedules(caregiverId);
+
+        return ResponseEntity.ok(BaseResponseDto.success(schedules, "Retrieved caregiver schedules"));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<Map<String, String>> handleIllegalArgumentException(IllegalArgumentException ex) {
-        Map<String, String> errorResponse = new HashMap<>();
-        errorResponse.put("error", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    public ResponseEntity<BaseResponseDto<Object>> handleIllegalArgumentException(IllegalArgumentException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(BaseResponseDto.error(HttpStatus.BAD_REQUEST.value(), ex.getMessage()));
     }
 
     @ExceptionHandler(ScheduleConflictException.class)
-    public ResponseEntity<Map<String, String>> handleScheduleConflictException(ScheduleConflictException ex) {
-        Map<String, String> errorResponse = new HashMap<>();
-        errorResponse.put("error", ex.getMessage());
-        errorResponse.put("errorType", "SCHEDULE_CONFLICT");
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
+    public ResponseEntity<BaseResponseDto<Object>> handleScheduleConflictException(ScheduleConflictException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(BaseResponseDto.error(HttpStatus.CONFLICT.value(), ex.getMessage()));
     }
 
     @ExceptionHandler(AuthenticationException.class)
-    public ResponseEntity<Map<String, String>> handleAuthenticationException(AuthenticationException ex) {
-        Map<String, String> errorResponse = new HashMap<>();
-        errorResponse.put("error", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
+    public ResponseEntity<BaseResponseDto<Object>> handleAuthenticationException(AuthenticationException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(BaseResponseDto.error(HttpStatus.UNAUTHORIZED.value(), ex.getMessage()));
+    }
+
+    @ExceptionHandler(ScheduleException.class)
+    public ResponseEntity<BaseResponseDto<Object>> handleScheduleException(ScheduleException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(BaseResponseDto.error(HttpStatus.BAD_REQUEST.value(), ex.getMessage()));
     }
 
     private String extractToken(HttpServletRequest request) {

@@ -1,5 +1,6 @@
 package id.ac.ui.cs.advprog.bekonsultasi.controller;
 
+import id.ac.ui.cs.advprog.bekonsultasi.dto.BaseResponseDto;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -12,10 +13,11 @@ import java.util.Map;
 public class HomeController {
 
     @GetMapping
-    public ResponseEntity<Map<String, String>> healthCheck() {
+    public ResponseEntity<BaseResponseDto<Map<String, String>>> healthCheck() {
         Map<String, String> status = new HashMap<>();
         status.put("status", "UP");
         status.put("service", "Back-End Konsultasi API");
-        return ResponseEntity.ok(status);
+
+        return ResponseEntity.ok(BaseResponseDto.success(status, "Service is running"));
     }
 }

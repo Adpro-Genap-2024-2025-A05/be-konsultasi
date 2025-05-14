@@ -28,7 +28,7 @@ public class KonsultasiController {
     private final TokenVerificationService tokenVerificationService;
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<KonsultasiResponseDto> createKonsultasi(
+    public ResponseEntity<BaseResponseDto<KonsultasiResponseDto>> createKonsultasi(
             @Valid @RequestBody CreateKonsultasiDto dto,
             HttpServletRequest request) {
         String token = extractToken(request);
@@ -41,11 +41,12 @@ public class KonsultasiController {
         UUID pacilianId = UUID.fromString(verification.getUserId());
         KonsultasiResponseDto response = konsultasiService.createKonsultasi(dto, pacilianId);
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(BaseResponseDto.created(response));
     }
 
     @PostMapping(path = "/{konsultasiId}/confirm", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<KonsultasiResponseDto> confirmKonsultasi(
+    public ResponseEntity<BaseResponseDto<KonsultasiResponseDto>> confirmKonsultasi(
             @PathVariable UUID konsultasiId,
             HttpServletRequest request) {
         String token = extractToken(request);
@@ -58,11 +59,11 @@ public class KonsultasiController {
         UUID caregiverId = UUID.fromString(verification.getUserId());
         KonsultasiResponseDto response = konsultasiService.confirmKonsultasi(konsultasiId, caregiverId);
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(BaseResponseDto.success(response, "Consultation confirmed successfully"));
     }
 
     @PostMapping(path = "/{konsultasiId}/cancel", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<KonsultasiResponseDto> cancelKonsultasi(
+    public ResponseEntity<BaseResponseDto<KonsultasiResponseDto>> cancelKonsultasi(
             @PathVariable UUID konsultasiId,
             HttpServletRequest request) {
         String token = extractToken(request);
@@ -73,11 +74,11 @@ public class KonsultasiController {
 
         KonsultasiResponseDto response = konsultasiService.cancelKonsultasi(konsultasiId, userId, role);
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(BaseResponseDto.success(response, "Consultation cancelled successfully"));
     }
 
     @PostMapping(path = "/{konsultasiId}/complete", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<KonsultasiResponseDto> completeKonsultasi(
+    public ResponseEntity<BaseResponseDto<KonsultasiResponseDto>> completeKonsultasi(
             @PathVariable UUID konsultasiId,
             HttpServletRequest request) {
         String token = extractToken(request);
@@ -90,11 +91,11 @@ public class KonsultasiController {
         UUID caregiverId = UUID.fromString(verification.getUserId());
         KonsultasiResponseDto response = konsultasiService.completeKonsultasi(konsultasiId, caregiverId);
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(BaseResponseDto.success(response, "Consultation completed successfully"));
     }
 
     @PostMapping(path = "/{konsultasiId}/accept-reschedule", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<KonsultasiResponseDto> acceptReschedule(
+    public ResponseEntity<BaseResponseDto<KonsultasiResponseDto>> acceptReschedule(
             @PathVariable UUID konsultasiId,
             HttpServletRequest request) {
         String token = extractToken(request);
@@ -107,11 +108,11 @@ public class KonsultasiController {
         UUID caregiverId = UUID.fromString(verification.getUserId());
         KonsultasiResponseDto response = konsultasiService.acceptReschedule(konsultasiId, caregiverId);
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(BaseResponseDto.success(response, "Rescheduled consultation accepted"));
     }
 
     @PostMapping(path = "/{konsultasiId}/reject-reschedule", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<KonsultasiResponseDto> rejectReschedule(
+    public ResponseEntity<BaseResponseDto<KonsultasiResponseDto>> rejectReschedule(
             @PathVariable UUID konsultasiId,
             HttpServletRequest request) {
         String token = extractToken(request);
@@ -124,11 +125,11 @@ public class KonsultasiController {
         UUID caregiverId = UUID.fromString(verification.getUserId());
         KonsultasiResponseDto response = konsultasiService.rejectReschedule(konsultasiId, caregiverId);
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(BaseResponseDto.success(response, "Rescheduled consultation rejected"));
     }
 
     @PostMapping(path = "/{konsultasiId}/reschedule", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<KonsultasiResponseDto> rescheduleKonsultasi(
+    public ResponseEntity<BaseResponseDto<KonsultasiResponseDto>> rescheduleKonsultasi(
             @PathVariable UUID konsultasiId,
             @Valid @RequestBody RescheduleKonsultasiDto dto,
             HttpServletRequest request) {
@@ -140,22 +141,22 @@ public class KonsultasiController {
 
         KonsultasiResponseDto response = konsultasiService.rescheduleKonsultasi(konsultasiId, dto, userId, role);
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(BaseResponseDto.success(response, "Consultation rescheduled successfully"));
     }
 
     @GetMapping(path = "/{konsultasiId}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<KonsultasiResponseDto> getKonsultasiById(
+    public ResponseEntity<BaseResponseDto<KonsultasiResponseDto>> getKonsultasiById(
             @PathVariable UUID konsultasiId,
             HttpServletRequest request) {
         verifyToken(request);
 
         KonsultasiResponseDto response = konsultasiService.getKonsultasiById(konsultasiId);
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(BaseResponseDto.success(response));
     }
 
     @GetMapping(path = "/pacilian", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<List<KonsultasiResponseDto>> getKonsultasiByPacilianId(
+    public ResponseEntity<BaseResponseDto<List<KonsultasiResponseDto>>> getKonsultasiByPacilianId(
             HttpServletRequest request) {
         String token = extractToken(request);
         TokenVerificationResponseDto verification = tokenVerificationService.verifyToken(token);
@@ -167,11 +168,11 @@ public class KonsultasiController {
         UUID pacilianId = UUID.fromString(verification.getUserId());
         List<KonsultasiResponseDto> response = konsultasiService.getKonsultasiByPacilianId(pacilianId);
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(BaseResponseDto.success(response, "Retrieved pacilian consultations"));
     }
 
     @GetMapping(path = "/caregiver", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<List<KonsultasiResponseDto>> getKonsultasiByCaregiverId(
+    public ResponseEntity<BaseResponseDto<List<KonsultasiResponseDto>>> getKonsultasiByCaregiverId(
             HttpServletRequest request) {
         String token = extractToken(request);
         TokenVerificationResponseDto verification = tokenVerificationService.verifyToken(token);
@@ -183,11 +184,11 @@ public class KonsultasiController {
         UUID caregiverId = UUID.fromString(verification.getUserId());
         List<KonsultasiResponseDto> response = konsultasiService.getKonsultasiByCaregiverId(caregiverId);
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(BaseResponseDto.success(response, "Retrieved caregiver consultations"));
     }
 
     @GetMapping(path = "/caregiver/requested", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<List<KonsultasiResponseDto>> getRequestedKonsultasiByCaregiverId(
+    public ResponseEntity<BaseResponseDto<List<KonsultasiResponseDto>>> getRequestedKonsultasiByCaregiverId(
             HttpServletRequest request) {
         String token = extractToken(request);
         TokenVerificationResponseDto verification = tokenVerificationService.verifyToken(token);
@@ -199,32 +200,30 @@ public class KonsultasiController {
         UUID caregiverId = UUID.fromString(verification.getUserId());
         List<KonsultasiResponseDto> response = konsultasiService.getRequestedKonsultasiByCaregiverId(caregiverId);
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(BaseResponseDto.success(response, "Retrieved requested consultations"));
     }
 
     @GetMapping(path = "/{konsultasiId}/history", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<List<KonsultasiHistoryDto>> getKonsultasiHistory(
+    public ResponseEntity<BaseResponseDto<List<KonsultasiHistoryDto>>> getKonsultasiHistory(
             @PathVariable UUID konsultasiId,
             HttpServletRequest request) {
         verifyToken(request);
 
         List<KonsultasiHistoryDto> response = konsultasiService.getKonsultasiHistory(konsultasiId);
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(BaseResponseDto.success(response, "Retrieved consultation history"));
     }
 
     @ExceptionHandler(ScheduleException.class)
-    public ResponseEntity<Map<String, String>> handleScheduleException(ScheduleException ex) {
-        Map<String, String> errorResponse = new HashMap<>();
-        errorResponse.put("error", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    public ResponseEntity<BaseResponseDto<Object>> handleScheduleException(ScheduleException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(BaseResponseDto.error(HttpStatus.BAD_REQUEST.value(), ex.getMessage()));
     }
 
     @ExceptionHandler(AuthenticationException.class)
-    public ResponseEntity<Map<String, String>> handleAuthenticationException(AuthenticationException ex) {
-        Map<String, String> errorResponse = new HashMap<>();
-        errorResponse.put("error", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
+    public ResponseEntity<BaseResponseDto<Object>> handleAuthenticationException(AuthenticationException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(BaseResponseDto.error(HttpStatus.UNAUTHORIZED.value(), ex.getMessage()));
     }
 
     private String extractToken(HttpServletRequest request) {
