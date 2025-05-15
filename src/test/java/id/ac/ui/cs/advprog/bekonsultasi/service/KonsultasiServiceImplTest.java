@@ -94,7 +94,6 @@ class KonsultasiServiceImplTest {
                 assertEquals(konsultasi.getId(), result.getId());
                 assertEquals("REQUESTED", result.getStatus());
                 verify(scheduleService).updateScheduleStatus(scheduleId, "UNAVAILABLE");
-                // Removed verification for history repository
         }
 
         @Test
@@ -121,7 +120,6 @@ class KonsultasiServiceImplTest {
 
                 assertNotNull(result);
                 assertEquals("CONFIRMED", result.getStatus());
-                // Removed verification for history repository
         }
 
         @Test
@@ -139,7 +137,6 @@ class KonsultasiServiceImplTest {
                 assertNotNull(result);
                 assertEquals("CANCELLED", result.getStatus());
                 verify(scheduleService).updateScheduleStatus(scheduleId, "AVAILABLE");
-                // Removed verification for history repository
         }
 
         @Test
@@ -159,7 +156,6 @@ class KonsultasiServiceImplTest {
                 assertNotNull(result);
                 assertEquals("DONE", result.getStatus());
                 verify(scheduleService).updateScheduleStatus(scheduleId, "AVAILABLE");
-                // Removed verification for history repository
         }
 
         @Test
@@ -184,7 +180,6 @@ class KonsultasiServiceImplTest {
                 assertNotNull(result);
                 assertEquals("RESCHEDULED", result.getStatus());
                 assertEquals(newDateTime, result.getScheduleDateTime());
-                // Removed verification for history repository
         }
 
         @Test
@@ -202,7 +197,6 @@ class KonsultasiServiceImplTest {
 
                 assertNotNull(result);
                 assertEquals("CONFIRMED", result.getStatus());
-                // Removed verification for history repository
         }
 
         @Test
@@ -223,7 +217,6 @@ class KonsultasiServiceImplTest {
 
                 assertNotNull(result);
                 assertEquals("REQUESTED", result.getStatus());
-                // Removed verification for history repository
         }
 
         @Test

@@ -3,114 +3,142 @@ package id.ac.ui.cs.advprog.bekonsultasi.service;
 import id.ac.ui.cs.advprog.bekonsultasi.dto.TokenVerificationResponseDto;
 import id.ac.ui.cs.advprog.bekonsultasi.enums.Role;
 import id.ac.ui.cs.advprog.bekonsultasi.exception.AuthenticationException;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.io.Decoders;
+import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.test.util.ReflectionTestUtils;
-import org.springframework.web.client.RestTemplate;
 
+import java.security.Key;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
-import static org.mockito.MockitoAnnotations.openMocks;
 
 class TokenVerificationServiceTest {
 
-    @Mock
-    private RestTemplate restTemplate;
-
-    @InjectMocks
     private TokenVerificationService tokenVerificationService;
-
-    private final String authServiceUrl = "http://localhost:8080/auth";
-    private final String token = "test-token";
-    private final String userId = UUID.randomUUID().toString();
+    private final String testSecret = "0000000000000000000000000000000000000000000000000000000000000000";
+    private final UUID testUserId = UUID.randomUUID();
+    private final String testEmail = "test@example.com";
 
     @BeforeEach
     void setUp() {
-        openMocks(this);
-        ReflectionTestUtils.setField(tokenVerificationService, "authServiceUrl", authServiceUrl);
+        tokenVerificationService = new TokenVerificationService();
+        ReflectionTestUtils.setField(tokenVerificationService, "secretKey", testSecret);
+    }
+
+    private String generateValidToken(Role role) {
+        return generateToken(testUserId.toString(), testEmail, role.name(), 3600000);
+    }
+
+    private String generateExpiredToken(Role role) {
+        return generateToken(testUserId.toString(), testEmail, role.name(), -10000);
+    }
+
+    private String generateTokenWithMissingClaims() {
+        Map<String, Object> claims = new HashMap<>();
+        
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + 3600000);
+        
+        Key key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(testSecret));
+        
+        return Jwts.builder()
+                .setClaims(claims)
+                .setSubject(testEmail)
+                .setIssuedAt(now)
+                .setExpiration(expiryDate)
+                .signWith(key, SignatureAlgorithm.HS256)
+                .compact();
+    }
+
+    private String generateTokenWithInvalidRole() {
+        return generateToken(testUserId.toString(), testEmail, "INVALID_ROLE", 3600000);
+    }
+
+    private String generateToken(String userId, String email, String role, long expirationMs) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("id", userId);
+        claims.put("role", role);
+        
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + expirationMs);
+        
+        Key key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(testSecret));
+        
+        return Jwts.builder()
+                .setClaims(claims)
+                .setSubject(email)
+                .setIssuedAt(now)
+                .setExpiration(expiryDate)
+                .signWith(key, SignatureAlgorithm.HS256)
+                .compact();
     }
 
     @Nested
     class VerifyTokenTests {
         @Test
         void testVerifyToken_Success() {
-            TokenVerificationResponseDto responseDto = TokenVerificationResponseDto.builder()
-                    .valid(true)
-                    .userId(userId)
-                    .email("test@example.com")
-                    .role(Role.CAREGIVER)
-                    .expiresIn(3600L)
-                    .build();
-
-            ResponseEntity<TokenVerificationResponseDto> responseEntity = 
-                    new ResponseEntity<>(responseDto, HttpStatus.OK);
-
-            when(restTemplate.exchange(
-                    eq(authServiceUrl + "/verify"),
-                    eq(HttpMethod.POST),
-                    any(HttpEntity.class),
-                    eq(TokenVerificationResponseDto.class)
-            )).thenReturn(responseEntity);
-
+            String token = generateValidToken(Role.CAREGIVER);
+            
             TokenVerificationResponseDto result = tokenVerificationService.verifyToken(token);
-
+            
             assertNotNull(result);
             assertTrue(result.isValid());
-            assertEquals(userId, result.getUserId());
-            assertEquals("test@example.com", result.getEmail());
+            assertEquals(testUserId.toString(), result.getUserId());
+            assertEquals(testEmail, result.getEmail());
             assertEquals(Role.CAREGIVER, result.getRole());
-            assertEquals(3600L, result.getExpiresIn());
+            assertTrue(result.getExpiresIn() > 0);
         }
-
+        
+        @Test
+        void testVerifyToken_ExpiredToken() {
+            String token = generateExpiredToken(Role.CAREGIVER);
+            
+            Exception exception = assertThrows(AuthenticationException.class, () -> {
+                tokenVerificationService.verifyToken(token);
+            });
+            
+            assertEquals("Error verifying token: Token has expired", exception.getMessage());
+        }
+        
         @Test
         void testVerifyToken_InvalidToken() {
-            TokenVerificationResponseDto responseDto = TokenVerificationResponseDto.builder()
-                    .valid(false)
-                    .build();
-
-            ResponseEntity<TokenVerificationResponseDto> responseEntity = 
-                    new ResponseEntity<>(responseDto, HttpStatus.OK);
-
-            when(restTemplate.exchange(
-                    eq(authServiceUrl + "/verify"),
-                    eq(HttpMethod.POST),
-                    any(HttpEntity.class),
-                    eq(TokenVerificationResponseDto.class)
-            )).thenReturn(responseEntity);
-
+            String token = "invalid.token.format";
+            
             Exception exception = assertThrows(AuthenticationException.class, () -> {
                 tokenVerificationService.verifyToken(token);
             });
-
-            assertEquals("Error verifying token: Invalid or expired token", exception.getMessage());
-        }
-
-        @Test
-        void testVerifyToken_RestTemplateException() {
-            when(restTemplate.exchange(
-                    anyString(),
-                    any(HttpMethod.class),
-                    any(HttpEntity.class),
-                    eq(TokenVerificationResponseDto.class)
-            )).thenThrow(new RuntimeException("Connection error"));
-
-            Exception exception = assertThrows(AuthenticationException.class, () -> {
-                tokenVerificationService.verifyToken(token);
-            });
-
+            
             assertTrue(exception.getMessage().contains("Error verifying token"));
+        }
+        
+        @Test
+        void testVerifyToken_MissingClaims() {
+            String token = generateTokenWithMissingClaims();
+            
+            Exception exception = assertThrows(AuthenticationException.class, () -> {
+                tokenVerificationService.verifyToken(token);
+            });
+            
+            assertEquals("Error verifying token: Invalid token: missing required claims", exception.getMessage());
+        }
+        
+        @Test
+        void testVerifyToken_InvalidRole() {
+            String token = generateTokenWithInvalidRole();
+            
+            Exception exception = assertThrows(AuthenticationException.class, () -> {
+                tokenVerificationService.verifyToken(token);
+            });
+            
+            assertTrue(exception.getMessage().contains("Invalid role in token"));
         }
     }
 
@@ -118,51 +146,19 @@ class TokenVerificationServiceTest {
     class TokenInformationExtractionTests {
         @Test
         void testGetUserIdFromToken() {
-            TokenVerificationResponseDto responseDto = TokenVerificationResponseDto.builder()
-                    .valid(true)
-                    .userId(userId)
-                    .email("test@example.com")
-                    .role(Role.CAREGIVER)
-                    .expiresIn(3600L)
-                    .build();
-
-            ResponseEntity<TokenVerificationResponseDto> responseEntity = 
-                    new ResponseEntity<>(responseDto, HttpStatus.OK);
-
-            when(restTemplate.exchange(
-                    eq(authServiceUrl + "/verify"),
-                    eq(HttpMethod.POST),
-                    any(HttpEntity.class),
-                    eq(TokenVerificationResponseDto.class)
-            )).thenReturn(responseEntity);
-
+            String token = generateValidToken(Role.CAREGIVER);
+            
             UUID result = tokenVerificationService.getUserIdFromToken(token);
-
-            assertEquals(UUID.fromString(userId), result);
+            
+            assertEquals(testUserId, result);
         }
 
         @Test
         void testGetUserRoleFromToken() {
-            TokenVerificationResponseDto responseDto = TokenVerificationResponseDto.builder()
-                    .valid(true)
-                    .userId(userId)
-                    .email("test@example.com")
-                    .role(Role.PACILIAN)
-                    .expiresIn(3600L)
-                    .build();
-
-            ResponseEntity<TokenVerificationResponseDto> responseEntity = 
-                    new ResponseEntity<>(responseDto, HttpStatus.OK);
-
-            when(restTemplate.exchange(
-                    eq(authServiceUrl + "/verify"),
-                    eq(HttpMethod.POST),
-                    any(HttpEntity.class),
-                    eq(TokenVerificationResponseDto.class)
-            )).thenReturn(responseEntity);
-
+            String token = generateValidToken(Role.PACILIAN);
+            
             Role result = tokenVerificationService.getUserRoleFromToken(token);
-
+            
             assertEquals(Role.PACILIAN, result);
         }
     }
@@ -171,51 +167,19 @@ class TokenVerificationServiceTest {
     class RoleValidationTests {
         @Test
         void testValidateRole_Success() {
-            TokenVerificationResponseDto responseDto = TokenVerificationResponseDto.builder()
-                    .valid(true)
-                    .userId(userId)
-                    .email("test@example.com")
-                    .role(Role.CAREGIVER)
-                    .expiresIn(3600L)
-                    .build();
-
-            ResponseEntity<TokenVerificationResponseDto> responseEntity = 
-                    new ResponseEntity<>(responseDto, HttpStatus.OK);
-
-            when(restTemplate.exchange(
-                    eq(authServiceUrl + "/verify"),
-                    eq(HttpMethod.POST),
-                    any(HttpEntity.class),
-                    eq(TokenVerificationResponseDto.class)
-            )).thenReturn(responseEntity);
-
+            String token = generateValidToken(Role.CAREGIVER);
+            
             tokenVerificationService.validateRole(token, Role.CAREGIVER);
         }
 
         @Test
         void testValidateRole_WrongRole() {
-            TokenVerificationResponseDto responseDto = TokenVerificationResponseDto.builder()
-                    .valid(true)
-                    .userId(userId)
-                    .email("test@example.com")
-                    .role(Role.PACILIAN)
-                    .expiresIn(3600L)
-                    .build();
-
-            ResponseEntity<TokenVerificationResponseDto> responseEntity = 
-                    new ResponseEntity<>(responseDto, HttpStatus.OK);
-
-            when(restTemplate.exchange(
-                    eq(authServiceUrl + "/verify"),
-                    eq(HttpMethod.POST),
-                    any(HttpEntity.class),
-                    eq(TokenVerificationResponseDto.class)
-            )).thenReturn(responseEntity);
-
+            String token = generateValidToken(Role.PACILIAN);
+            
             Exception exception = assertThrows(AuthenticationException.class, () -> {
                 tokenVerificationService.validateRole(token, Role.CAREGIVER);
             });
-
+            
             assertEquals("Access denied. Required role: CAREGIVER", exception.getMessage());
         }
     }
