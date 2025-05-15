@@ -46,12 +46,10 @@ public class ScheduleServiceImpl implements ScheduleService {
     public ScheduleResponseDto updateSchedule(UUID scheduleId, CreateScheduleDto dto, UUID caregiverId) {
         Schedule schedule = findScheduleById(scheduleId);
 
-        // Verify ownership
         if (!schedule.getCaregiverId().equals(caregiverId)) {
             throw new AuthenticationException("You can only update your own schedules");
         }
 
-        // Check if schedule is currently in use
         if ("UNAVAILABLE".equals(schedule.getStatus())) {
             List<Konsultasi> activeKonsultations = konsultasiRepository.findByScheduleId(scheduleId);
             if (!activeKonsultations.isEmpty()) {
@@ -61,14 +59,12 @@ public class ScheduleServiceImpl implements ScheduleService {
 
         validateScheduleTimes(dto);
 
-        // Check for conflicts with other schedules (excluding the current one being updated)
         List<Schedule> otherCaregiverSchedules = scheduleRepository.findByCaregiverId(caregiverId).stream()
                 .filter(s -> !s.getId().equals(scheduleId))
                 .collect(Collectors.toList());
 
         validateNoOverlappingSchedules(otherCaregiverSchedules, dto, caregiverId);
 
-        // Update schedule properties
         schedule.setDay(dto.getDay());
         schedule.setStartTime(dto.getStartTime());
         schedule.setEndTime(dto.getEndTime());
@@ -82,12 +78,10 @@ public class ScheduleServiceImpl implements ScheduleService {
     public void deleteSchedule(UUID scheduleId, UUID caregiverId) {
         Schedule schedule = findScheduleById(scheduleId);
 
-        // Verify ownership
         if (!schedule.getCaregiverId().equals(caregiverId)) {
             throw new AuthenticationException("You can only delete your own schedules");
         }
 
-        // Check for active konsultasi linked to this schedule
         List<Konsultasi> linkedKonsultations = konsultasiRepository.findByScheduleId(scheduleId);
 
         boolean hasActiveKonsultasi = linkedKonsultations.stream()

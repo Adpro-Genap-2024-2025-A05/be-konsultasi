@@ -348,36 +348,6 @@ class KonsultasiControllerTest {
             verify(tokenVerificationService).verifyToken(token);
             verify(konsultasiService).getRequestedKonsultasiByCaregiverId(any(UUID.class));
         }
-
-        @Test
-        void testGetKonsultasiHistory_Success() {
-            when(tokenVerificationService.verifyToken(token)).thenReturn(tokenResponse);
-
-            KonsultasiHistoryDto historyDto = KonsultasiHistoryDto.builder()
-                    .id(UUID.randomUUID())
-                    .previousStatus("REQUESTED")
-                    .newStatus("CONFIRMED")
-                    .timestamp(LocalDateTime.now())
-                    .modifiedByUserType(userId.toString())
-                    .notes("Test history")
-                    .build();
-
-            List<KonsultasiHistoryDto> historyList = Arrays.asList(historyDto);
-            when(konsultasiService.getKonsultasiHistory(konsultasiId)).thenReturn(historyList);
-
-            ResponseEntity<BaseResponseDto<List<KonsultasiHistoryDto>>> response =
-                    konsultasiController.getKonsultasiHistory(konsultasiId, request);
-
-            assertEquals(HttpStatus.OK, response.getStatusCode());
-            assertNotNull(response.getBody());
-            assertEquals(200, response.getBody().getStatus());
-            assertEquals("Retrieved consultation history", response.getBody().getMessage());
-            assertEquals(1, response.getBody().getData().size());
-            assertEquals("REQUESTED", response.getBody().getData().get(0).getPreviousStatus());
-            assertEquals("CONFIRMED", response.getBody().getData().get(0).getNewStatus());
-            verify(tokenVerificationService).verifyToken(token);
-            verify(konsultasiService).getKonsultasiHistory(konsultasiId);
-        }
     }
 
     @Nested

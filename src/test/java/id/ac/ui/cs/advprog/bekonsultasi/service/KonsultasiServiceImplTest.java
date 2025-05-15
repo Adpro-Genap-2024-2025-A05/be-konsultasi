@@ -1,14 +1,11 @@
 package id.ac.ui.cs.advprog.bekonsultasi.service;
 
 import id.ac.ui.cs.advprog.bekonsultasi.dto.CreateKonsultasiDto;
-import id.ac.ui.cs.advprog.bekonsultasi.dto.KonsultasiHistoryDto;
 import id.ac.ui.cs.advprog.bekonsultasi.dto.KonsultasiResponseDto;
 import id.ac.ui.cs.advprog.bekonsultasi.dto.RescheduleKonsultasiDto;
 import id.ac.ui.cs.advprog.bekonsultasi.exception.ScheduleException;
 import id.ac.ui.cs.advprog.bekonsultasi.model.Konsultasi;
-import id.ac.ui.cs.advprog.bekonsultasi.model.KonsultasiHistory;
 import id.ac.ui.cs.advprog.bekonsultasi.model.Schedule;
-import id.ac.ui.cs.advprog.bekonsultasi.repository.KonsultasiHistoryRepository;
 import id.ac.ui.cs.advprog.bekonsultasi.repository.KonsultasiRepository;
 import id.ac.ui.cs.advprog.bekonsultasi.repository.ScheduleRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,6 +25,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -35,9 +33,6 @@ class KonsultasiServiceImplTest {
 
         @Mock
         private KonsultasiRepository konsultasiRepository;
-
-        @Mock
-        private KonsultasiHistoryRepository historyRepository;
 
         @Mock
         private ScheduleRepository scheduleRepository;
@@ -99,7 +94,7 @@ class KonsultasiServiceImplTest {
                 assertEquals(konsultasi.getId(), result.getId());
                 assertEquals("REQUESTED", result.getStatus());
                 verify(scheduleService).updateScheduleStatus(scheduleId, "UNAVAILABLE");
-                verify(historyRepository).save(any(KonsultasiHistory.class));
+                // Removed verification for history repository
         }
 
         @Test
@@ -126,7 +121,7 @@ class KonsultasiServiceImplTest {
 
                 assertNotNull(result);
                 assertEquals("CONFIRMED", result.getStatus());
-                verify(historyRepository).save(any(KonsultasiHistory.class));
+                // Removed verification for history repository
         }
 
         @Test
@@ -144,7 +139,7 @@ class KonsultasiServiceImplTest {
                 assertNotNull(result);
                 assertEquals("CANCELLED", result.getStatus());
                 verify(scheduleService).updateScheduleStatus(scheduleId, "AVAILABLE");
-                verify(historyRepository).save(any(KonsultasiHistory.class));
+                // Removed verification for history repository
         }
 
         @Test
@@ -164,7 +159,7 @@ class KonsultasiServiceImplTest {
                 assertNotNull(result);
                 assertEquals("DONE", result.getStatus());
                 verify(scheduleService).updateScheduleStatus(scheduleId, "AVAILABLE");
-                verify(historyRepository).save(any(KonsultasiHistory.class));
+                // Removed verification for history repository
         }
 
         @Test
@@ -189,7 +184,7 @@ class KonsultasiServiceImplTest {
                 assertNotNull(result);
                 assertEquals("RESCHEDULED", result.getStatus());
                 assertEquals(newDateTime, result.getScheduleDateTime());
-                verify(historyRepository).save(any(KonsultasiHistory.class));
+                // Removed verification for history repository
         }
 
         @Test
@@ -207,7 +202,7 @@ class KonsultasiServiceImplTest {
 
                 assertNotNull(result);
                 assertEquals("CONFIRMED", result.getStatus());
-                verify(historyRepository).save(any(KonsultasiHistory.class));
+                // Removed verification for history repository
         }
 
         @Test
@@ -228,7 +223,7 @@ class KonsultasiServiceImplTest {
 
                 assertNotNull(result);
                 assertEquals("REQUESTED", result.getStatus());
-                verify(historyRepository).save(any(KonsultasiHistory.class));
+                // Removed verification for history repository
         }
 
         @Test
@@ -272,29 +267,5 @@ class KonsultasiServiceImplTest {
                 assertNotNull(result);
                 assertEquals(1, result.size());
                 assertEquals(konsultasi.getId(), result.get(0).getId());
-        }
-
-        @Test
-        void testGetKonsultasiHistory() {
-                UUID konsultasiId = konsultasi.getId();
-                KonsultasiHistory history = KonsultasiHistory.builder()
-                        .id(UUID.randomUUID())
-                        .konsultasiId(konsultasiId)
-                        .previousStatus("NONE")
-                        .newStatus("REQUESTED")
-                        .timestamp(LocalDateTime.now())
-                        .modifiedBy(pacilianId)
-                        .notes("Test history")
-                        .build();
-
-                when(historyRepository.findByKonsultasiIdOrderByTimestampDesc(konsultasiId)).thenReturn(List.of(history));
-
-                List<KonsultasiHistoryDto> result = konsultasiService.getKonsultasiHistory(konsultasiId);
-
-                assertNotNull(result);
-                assertEquals(1, result.size());
-                assertEquals(history.getId(), result.get(0).getId());
-                assertEquals(history.getPreviousStatus(), result.get(0).getPreviousStatus());
-                assertEquals(history.getNewStatus(), result.get(0).getNewStatus());
         }
 }

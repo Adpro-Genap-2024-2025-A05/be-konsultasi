@@ -14,9 +14,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -201,17 +199,6 @@ public class KonsultasiController {
         List<KonsultasiResponseDto> response = konsultasiService.getRequestedKonsultasiByCaregiverId(caregiverId);
 
         return ResponseEntity.ok(BaseResponseDto.success(response, "Retrieved requested consultations"));
-    }
-
-    @GetMapping(path = "/{konsultasiId}/history", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<BaseResponseDto<List<KonsultasiHistoryDto>>> getKonsultasiHistory(
-            @PathVariable UUID konsultasiId,
-            HttpServletRequest request) {
-        verifyToken(request);
-
-        List<KonsultasiHistoryDto> response = konsultasiService.getKonsultasiHistory(konsultasiId);
-
-        return ResponseEntity.ok(BaseResponseDto.success(response, "Retrieved consultation history"));
     }
 
     @ExceptionHandler(ScheduleException.class)

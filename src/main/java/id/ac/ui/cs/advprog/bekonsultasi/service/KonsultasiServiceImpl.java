@@ -3,10 +3,8 @@ package id.ac.ui.cs.advprog.bekonsultasi.service;
 import id.ac.ui.cs.advprog.bekonsultasi.dto.*;
 import id.ac.ui.cs.advprog.bekonsultasi.exception.ScheduleException;
 import id.ac.ui.cs.advprog.bekonsultasi.model.Konsultasi;
-import id.ac.ui.cs.advprog.bekonsultasi.model.KonsultasiHistory;
 import id.ac.ui.cs.advprog.bekonsultasi.model.KonsultasiState.*;
 import id.ac.ui.cs.advprog.bekonsultasi.model.Schedule;
-import id.ac.ui.cs.advprog.bekonsultasi.repository.KonsultasiHistoryRepository;
 import id.ac.ui.cs.advprog.bekonsultasi.repository.KonsultasiRepository;
 import id.ac.ui.cs.advprog.bekonsultasi.repository.ScheduleRepository;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +23,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class KonsultasiServiceImpl implements KonsultasiService {
     private final KonsultasiRepository konsultasiRepository;
-    private final KonsultasiHistoryRepository historyRepository;
     private final ScheduleRepository scheduleRepository;
     private final ScheduleService scheduleService;
 
@@ -58,13 +55,6 @@ public class KonsultasiServiceImpl implements KonsultasiService {
         Konsultasi savedKonsultasi = konsultasiRepository.save(konsultasi);
         scheduleService.updateScheduleStatus(dto.getScheduleId(), "UNAVAILABLE");
 
-        createKonsultasiHistory(
-                savedKonsultasi.getId(),
-                "NONE",
-                "REQUESTED",
-                pacilianId,
-                "Consultation requested");
-
         return convertToResponseDto(savedKonsultasi);
     }
 
@@ -80,18 +70,10 @@ public class KonsultasiServiceImpl implements KonsultasiService {
         }
 
         initializeState(konsultasi);
-        String previousStatus = konsultasi.getStatus();
 
         try {
             konsultasi.confirm();
             Konsultasi savedKonsultasi = konsultasiRepository.save(konsultasi);
-
-            createKonsultasiHistory(
-                    konsultasiId,
-                    previousStatus,
-                    savedKonsultasi.getStatus(),
-                    caregiverId,
-                    "Consultation confirmed by caregiver");
 
             return convertToResponseDto(savedKonsultasi);
         } catch (IllegalStateException e) {
@@ -110,20 +92,12 @@ public class KonsultasiServiceImpl implements KonsultasiService {
         }
 
         initializeState(konsultasi);
-        String previousStatus = konsultasi.getStatus();
 
         try {
             konsultasi.cancel();
             Konsultasi savedKonsultasi = konsultasiRepository.save(konsultasi);
 
             scheduleService.updateScheduleStatus(savedKonsultasi.getScheduleId(), "AVAILABLE");
-
-            createKonsultasiHistory(
-                    konsultasiId,
-                    previousStatus,
-                    savedKonsultasi.getStatus(),
-                    userId,
-                    "Consultation cancelled by " + role.toLowerCase());
 
             return convertToResponseDto(savedKonsultasi);
         } catch (IllegalStateException e) {
@@ -138,19 +112,11 @@ public class KonsultasiServiceImpl implements KonsultasiService {
         validateUserRoleAndOwnership(konsultasi, caregiverId, "CAREGIVER");
 
         initializeState(konsultasi);
-        String previousStatus = konsultasi.getStatus();
 
         try {
             konsultasi.complete();
             Konsultasi savedKonsultasi = konsultasiRepository.save(konsultasi);
             scheduleService.updateScheduleStatus(savedKonsultasi.getScheduleId(), "AVAILABLE");
-
-            createKonsultasiHistory(
-                    konsultasiId,
-                    previousStatus,
-                    savedKonsultasi.getStatus(),
-                    caregiverId,
-                    "Consultation completed");
 
             return convertToResponseDto(savedKonsultasi);
         } catch (IllegalStateException e) {
@@ -170,19 +136,11 @@ public class KonsultasiServiceImpl implements KonsultasiService {
         }
 
         initializeState(konsultasi);
-        String previousStatus = konsultasi.getStatus();
 
         try {
             konsultasi.reschedule(dto.getNewScheduleDateTime());
 
             Konsultasi savedKonsultasi = konsultasiRepository.save(konsultasi);
-
-            createKonsultasiHistory(
-                    konsultasiId,
-                    previousStatus,
-                    savedKonsultasi.getStatus(),
-                    userId,
-                    "Consultation rescheduled by " + role.toLowerCase() + ": " + dto.getNotes());
 
             return convertToResponseDto(savedKonsultasi);
         } catch (IllegalStateException e) {
@@ -201,18 +159,10 @@ public class KonsultasiServiceImpl implements KonsultasiService {
         }
 
         initializeState(konsultasi);
-        String previousStatus = konsultasi.getStatus();
 
         try {
             konsultasi.confirm();
             Konsultasi savedKonsultasi = konsultasiRepository.save(konsultasi);
-
-            createKonsultasiHistory(
-                    konsultasiId,
-                    previousStatus,
-                    savedKonsultasi.getStatus(),
-                    caregiverId,
-                    "Rescheduled consultation accepted by caregiver");
 
             return convertToResponseDto(savedKonsultasi);
         } catch (IllegalStateException e) {
@@ -231,20 +181,12 @@ public class KonsultasiServiceImpl implements KonsultasiService {
         }
 
         initializeState(konsultasi);
-        String previousStatus = konsultasi.getStatus();
 
         try {
             RescheduledState rescheduledState = (RescheduledState) konsultasi.getState();
             rescheduledState.reject(konsultasi);
 
             Konsultasi savedKonsultasi = konsultasiRepository.save(konsultasi);
-
-            createKonsultasiHistory(
-                    konsultasiId,
-                    previousStatus,
-                    savedKonsultasi.getStatus(),
-                    caregiverId,
-                    "Rescheduled consultation rejected by caregiver, reverted to original schedule");
 
             return convertToResponseDto(savedKonsultasi);
         } catch (IllegalStateException e) {
@@ -270,14 +212,6 @@ public class KonsultasiServiceImpl implements KonsultasiService {
     @Override
     public List<KonsultasiResponseDto> getRequestedKonsultasiByCaregiverId(UUID caregiverId) {
         return convertToDtoList(konsultasiRepository.findByStatusAndCaregiverId("REQUESTED", caregiverId));
-    }
-
-    @Override
-    public List<KonsultasiHistoryDto> getKonsultasiHistory(UUID konsultasiId) {
-        List<KonsultasiHistory> historyList = historyRepository.findByKonsultasiIdOrderByTimestampDesc(konsultasiId);
-        return historyList.stream()
-                .map(this::convertToHistoryDto)
-                .collect(Collectors.toList());
     }
 
     private Schedule findScheduleById(UUID scheduleId) {
@@ -338,19 +272,6 @@ public class KonsultasiServiceImpl implements KonsultasiService {
         return konsultasi;
     }
 
-    private void createKonsultasiHistory(UUID konsultasiId, String previousStatus,
-                                         String newStatus, UUID modifiedBy, String notes) {
-        KonsultasiHistory history = KonsultasiHistory.builder()
-                .konsultasiId(konsultasiId)
-                .previousStatus(previousStatus)
-                .newStatus(newStatus)
-                .modifiedBy(modifiedBy)
-                .notes(notes)
-                .build();
-
-        historyRepository.save(history);
-    }
-
     private LocalDateTime calculateNextDateTimeForSchedule(Schedule schedule) {
         LocalDateTime now = LocalDateTime.now();
         DayOfWeek targetDay = schedule.getDay();
@@ -385,17 +306,6 @@ public class KonsultasiServiceImpl implements KonsultasiService {
                 .notes(konsultasi.getNotes())
                 .status(konsultasi.getStatus())
                 .lastUpdated(LocalDateTime.now())
-                .build();
-    }
-
-    private KonsultasiHistoryDto convertToHistoryDto(KonsultasiHistory history) {
-        return KonsultasiHistoryDto.builder()
-                .id(history.getId())
-                .previousStatus(history.getPreviousStatus())
-                .newStatus(history.getNewStatus())
-                .timestamp(history.getTimestamp())
-                .modifiedByUserType(history.getModifiedBy().toString())
-                .notes(history.getNotes())
                 .build();
     }
 }

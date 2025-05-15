@@ -17,5 +17,4 @@ public interface KonsultasiService {
     List<KonsultasiResponseDto> getKonsultasiByPacilianId(UUID pacilianId);
     List<KonsultasiResponseDto> getKonsultasiByCaregiverId(UUID caregiverId);
     List<KonsultasiResponseDto> getRequestedKonsultasiByCaregiverId(UUID caregiverId);
-    List<KonsultasiHistoryDto> getKonsultasiHistory(UUID konsultasiId);
 }

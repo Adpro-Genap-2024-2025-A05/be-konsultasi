@@ -131,7 +131,6 @@ Builder Pattern dipilih karena objek Schedule memiliki beberapa field yang harus
 ### Model Layer
 
 - `Konsultasi.java`: Model utama yang menyimpan data konsultasi dan state saat ini
-- `KonsultasiHistory.java`: Model untuk mencatat perubahan status konsultasi 
 - `state/KonsultasiState.java`: Interface untuk State Pattern 
 - `state/RequestedState.java`: Status permintaan awal 
 - `state/ConfirmedState.java`: Status setelah dikonfirmasi dokter 
@@ -141,7 +140,6 @@ Builder Pattern dipilih karena objek Schedule memiliki beberapa field yang harus
 ### Repository Layer
 
 - `KonsultasiRepository.java`: Menangani penyimpanan dan pengambilan data konsultasi 
-- `KonsultasiHistoryRepository.java`: Menangani penyimpanan dan pengambilan data history
 
 ### Service Layer
 
