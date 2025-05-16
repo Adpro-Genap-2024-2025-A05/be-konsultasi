@@ -38,13 +38,7 @@ Mitigasi: Desain baru memperkenalkan arsitektur failover dengan menambahkan Back
 
 # Individu (Steven Setiawan)
 
-## Component Diagram
 
-![Component Diagram Steven](./images/component-diagram-steven.png)
-
-## Code Diagram
-
-![Code Diagram Steven](./images/code-diagram-steven.png)
 
 # Schedule Component - BE-Konsultasi Service
 
