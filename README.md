@@ -16,6 +16,16 @@
 
 ![Risk Analysis](./images/risk-analysis.png)
 
+**1. Risiko Kebocoran Kredensial Database** \
+Kebocoran kredensial database bisa mengakibatkan seluruh data pasien dan medis yang sensitif terbuka untuk pihak tidak bertanggung jawab.
+
+Mitigasi: Pada desain yang dimodifikasi ditambahkan lapisan Security Service yang khusus menangani validasi akses dan audit trail setiap transaksi database. Selain itu, kredensial database juga disimpan terpisah melalui sistem API Gateway yang berfungsi sebagai perantara antara aplikasi dan database, sehingga mengurangi eksposur langsung ke kredensial database.
+
+**2. Risiko Single Point of Failure pada Single Page Application** \
+Desain sebelumnya menunjukkan bahwa seluruh aksesibilitas sistem bergantung pada satu aplikasi SPA, yang bisa menjadi single point of failure jika terjadi masalah pada container tersebut.
+
+Mitigasi: Desain baru memperkenalkan arsitektur failover dengan menambahkan Backup SPA yang dapat mengambil alih jika SPA utama mengalami kegagalan. Selain itu, desain baru juga mengimplementasikan load balancer untuk SPA utama, sehingga traffic dapat didistribusikan secara merata dan mengurangi beban pada single point.
+
 # Schedule Component - BE-Konsultasi Service
 
 # Deployment
