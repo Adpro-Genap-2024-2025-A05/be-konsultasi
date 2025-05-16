@@ -12,6 +12,10 @@
 
 ![Deployment Diagram](./images/deployment-diagram.png)
 
+## Risk Analysis & Architecture Modification
+
+![Risk Analysis](./images/risk-analysis.png)
+
 # Schedule Component - BE-Konsultasi Service
 
 # Deployment
