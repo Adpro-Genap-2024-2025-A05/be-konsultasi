@@ -1,8 +1,22 @@
+# C4 Model of the Current Architecture
+
+## Context Diagram
+
+![Context Diagram](./images/context-diagram.png)
+
+## Container Diagram
+
+![Container Diagram](./images/container-diagram.png)
+
+## Deployment Diagram
+
+![Deployment Diagram](./images/deployment-diagram.png)
+
+# Schedule Component - BE-Konsultasi Service
+
 # Deployment
 
 Link: [BE-Konsultasi Deployment](http://52.202.150.103/)
-
-# Schedule Component - BE-Konsultasi Service
 
 ## Overview
 - Dokter dapat membuat jadwal (hari dan jam) mingguan baru dengan status available. (C)
