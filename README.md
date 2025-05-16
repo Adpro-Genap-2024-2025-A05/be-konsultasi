@@ -26,6 +26,15 @@ Desain sebelumnya menunjukkan bahwa seluruh aksesibilitas sistem bergantung pada
 
 Mitigasi: Desain baru memperkenalkan arsitektur failover dengan menambahkan Backup SPA yang dapat mengambil alih jika SPA utama mengalami kegagalan. Selain itu, desain baru juga mengimplementasikan load balancer untuk SPA utama, sehingga traffic dapat didistribusikan secara merata dan mengurangi beban pada single point.
 
+# Individu
+
+## Component Diagram
+
+![Code Diagram](./images/component-diagram-bas.png)
+
+## Code Diagram
+
+![Code Diagram](./images/code-diagram-bas.png)
 # Schedule Component - BE-Konsultasi Service
 
 # Deployment
