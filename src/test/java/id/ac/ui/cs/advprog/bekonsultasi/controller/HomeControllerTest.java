@@ -1,6 +1,6 @@
 package id.ac.ui.cs.advprog.bekonsultasi.controller;
 
-import id.ac.ui.cs.advprog.bekonsultasi.dto.BaseResponseDto;
+import id.ac.ui.cs.advprog.bekonsultasi.dto.ApiResponseDto;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockitoAnnotations;
@@ -23,7 +23,7 @@ class HomeControllerTest {
 
     @Test
     void healthCheck_shouldReturnUpStatus() {
-        ResponseEntity<BaseResponseDto<Map<String, String>>> response = homeController.healthCheck();
+        ResponseEntity<ApiResponseDto<Map<String, String>>> response = homeController.healthCheck();
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
@@ -36,7 +36,7 @@ class HomeControllerTest {
 
     @Test
     void healthCheck_shouldNotReturnNullResponse() {
-        ResponseEntity<BaseResponseDto<Map<String, String>>> response = homeController.healthCheck();
+        ResponseEntity<ApiResponseDto<Map<String, String>>> response = homeController.healthCheck();
 
         assertNotNull(response);
         assertNotNull(response.getBody());

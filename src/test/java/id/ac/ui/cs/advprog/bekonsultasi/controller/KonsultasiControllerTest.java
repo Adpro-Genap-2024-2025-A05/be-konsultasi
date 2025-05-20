@@ -89,7 +89,7 @@ class KonsultasiControllerTest {
             when(konsultasiService.createKonsultasi(eq(createDto), any(UUID.class)))
                     .thenReturn(konsultasiResponse);
 
-            ResponseEntity<BaseResponseDto<KonsultasiResponseDto>> response =
+            ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> response =
                     konsultasiController.createKonsultasi(createDto, request);
 
             assertEquals(HttpStatus.CREATED, response.getStatusCode());
@@ -132,7 +132,7 @@ class KonsultasiControllerTest {
             when(konsultasiService.confirmKonsultasi(eq(konsultasiId), any(UUID.class)))
                     .thenReturn(confirmedResponse);
 
-            ResponseEntity<BaseResponseDto<KonsultasiResponseDto>> response =
+            ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> response =
                     konsultasiController.confirmKonsultasi(konsultasiId, request);
 
             assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -172,7 +172,7 @@ class KonsultasiControllerTest {
             when(konsultasiService.cancelKonsultasi(eq(konsultasiId), any(UUID.class), eq("CAREGIVER")))
                     .thenReturn(cancelledResponse);
 
-            ResponseEntity<BaseResponseDto<KonsultasiResponseDto>> response =
+            ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> response =
                     konsultasiController.cancelKonsultasi(konsultasiId, request);
 
             assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -196,7 +196,7 @@ class KonsultasiControllerTest {
             when(konsultasiService.completeKonsultasi(eq(konsultasiId), any(UUID.class)))
                     .thenReturn(completedResponse);
 
-            ResponseEntity<BaseResponseDto<KonsultasiResponseDto>> response =
+            ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> response =
                     konsultasiController.completeKonsultasi(konsultasiId, request);
 
             assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -243,7 +243,7 @@ class KonsultasiControllerTest {
                     eq(konsultasiId), eq(rescheduleDto), any(UUID.class), eq("CAREGIVER")))
                     .thenReturn(rescheduledResponse);
 
-            ResponseEntity<BaseResponseDto<KonsultasiResponseDto>> response =
+            ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> response =
                     konsultasiController.rescheduleKonsultasi(konsultasiId, rescheduleDto, request);
 
             assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -264,7 +264,7 @@ class KonsultasiControllerTest {
             when(tokenVerificationService.verifyToken(token)).thenReturn(tokenResponse);
             when(konsultasiService.getKonsultasiById(konsultasiId)).thenReturn(konsultasiResponse);
 
-            ResponseEntity<BaseResponseDto<KonsultasiResponseDto>> response =
+            ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> response =
                     konsultasiController.getKonsultasiById(konsultasiId, request);
 
             assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -283,7 +283,7 @@ class KonsultasiControllerTest {
             List<KonsultasiResponseDto> konsultasiList = Arrays.asList(konsultasiResponse);
             when(konsultasiService.getKonsultasiByPacilianId(any(UUID.class))).thenReturn(konsultasiList);
 
-            ResponseEntity<BaseResponseDto<List<KonsultasiResponseDto>>> response =
+            ResponseEntity<ApiResponseDto<List<KonsultasiResponseDto>>> response =
                     konsultasiController.getKonsultasiByPacilianId(request);
 
             assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -315,7 +315,7 @@ class KonsultasiControllerTest {
             List<KonsultasiResponseDto> konsultasiList = Arrays.asList(konsultasiResponse);
             when(konsultasiService.getKonsultasiByCaregiverId(any(UUID.class))).thenReturn(konsultasiList);
 
-            ResponseEntity<BaseResponseDto<List<KonsultasiResponseDto>>> response =
+            ResponseEntity<ApiResponseDto<List<KonsultasiResponseDto>>> response =
                     konsultasiController.getKonsultasiByCaregiverId(request);
 
             assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -336,7 +336,7 @@ class KonsultasiControllerTest {
             when(konsultasiService.getRequestedKonsultasiByCaregiverId(any(UUID.class)))
                     .thenReturn(konsultasiList);
 
-            ResponseEntity<BaseResponseDto<List<KonsultasiResponseDto>>> response =
+            ResponseEntity<ApiResponseDto<List<KonsultasiResponseDto>>> response =
                     konsultasiController.getRequestedKonsultasiByCaregiverId(request);
 
             assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -364,7 +364,7 @@ class KonsultasiControllerTest {
             when(konsultasiService.acceptReschedule(eq(konsultasiId), any(UUID.class)))
                     .thenReturn(confirmedResponse);
 
-            ResponseEntity<BaseResponseDto<KonsultasiResponseDto>> response =
+            ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> response =
                     konsultasiController.acceptReschedule(konsultasiId, request);
 
             assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -402,7 +402,7 @@ class KonsultasiControllerTest {
             when(konsultasiService.rejectReschedule(eq(konsultasiId), any(UUID.class)))
                     .thenReturn(requestedResponse);
 
-            ResponseEntity<BaseResponseDto<KonsultasiResponseDto>> response =
+            ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> response =
                     konsultasiController.rejectReschedule(konsultasiId, request);
 
             assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -449,7 +449,7 @@ class KonsultasiControllerTest {
         void testHandleScheduleException() {
             ScheduleException exception = new ScheduleException("Schedule conflict");
 
-            ResponseEntity<BaseResponseDto<Object>> response =
+            ResponseEntity<ApiResponseDto<Object>> response =
                     konsultasiController.handleScheduleException(exception);
 
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
@@ -463,7 +463,7 @@ class KonsultasiControllerTest {
         void testHandleAuthenticationException() {
             AuthenticationException exception = new AuthenticationException("Invalid token");
 
-            ResponseEntity<BaseResponseDto<Object>> response =
+            ResponseEntity<ApiResponseDto<Object>> response =
                     konsultasiController.handleAuthenticationException(exception);
 
             assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());

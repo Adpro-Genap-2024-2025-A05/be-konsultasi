@@ -1,6 +1,6 @@
 package id.ac.ui.cs.advprog.bekonsultasi.controller;
 
-import id.ac.ui.cs.advprog.bekonsultasi.dto.BaseResponseDto;
+import id.ac.ui.cs.advprog.bekonsultasi.dto.ApiResponseDto;
 import id.ac.ui.cs.advprog.bekonsultasi.dto.CreateScheduleDto;
 import id.ac.ui.cs.advprog.bekonsultasi.dto.ScheduleResponseDto;
 import id.ac.ui.cs.advprog.bekonsultasi.dto.TokenVerificationResponseDto;
@@ -30,7 +30,7 @@ public class ScheduleController {
     private final TokenVerificationService tokenVerificationService;
 
     @PostMapping(path = "/caregiver", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<BaseResponseDto<ScheduleResponseDto>> createCaregiverSchedule(
+    public ResponseEntity<ApiResponseDto<ScheduleResponseDto>> createCaregiverSchedule(
             @Valid @RequestBody CreateScheduleDto scheduleDto,
             HttpServletRequest request) {
 
@@ -45,11 +45,11 @@ public class ScheduleController {
         ScheduleResponseDto response = scheduleService.createSchedule(scheduleDto, caregiverId);
 
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(BaseResponseDto.created(response));
+                .body(ApiResponseDto.success(201, "Created successfully", response));
     }
 
     @PutMapping(path = "/caregiver/{scheduleId}", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<BaseResponseDto<ScheduleResponseDto>> updateCaregiverSchedule(
+    public ResponseEntity<ApiResponseDto<ScheduleResponseDto>> updateCaregiverSchedule(
             @PathVariable UUID scheduleId,
             @Valid @RequestBody CreateScheduleDto scheduleDto,
             HttpServletRequest request) {
@@ -64,11 +64,11 @@ public class ScheduleController {
         UUID caregiverId = UUID.fromString(verification.getUserId());
         ScheduleResponseDto response = scheduleService.updateSchedule(scheduleId, scheduleDto, caregiverId);
 
-        return ResponseEntity.ok(BaseResponseDto.success(response, "Schedule updated successfully"));
+        return ResponseEntity.ok(ApiResponseDto.success(200, "Schedule updated successfully", response));
     }
 
     @DeleteMapping(path = "/caregiver/{scheduleId}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<BaseResponseDto<Object>> deleteCaregiverSchedule(
+    public ResponseEntity<ApiResponseDto<Object>> deleteCaregiverSchedule(
             @PathVariable UUID scheduleId,
             HttpServletRequest request) {
 
@@ -82,11 +82,11 @@ public class ScheduleController {
         UUID caregiverId = UUID.fromString(verification.getUserId());
         scheduleService.deleteSchedule(scheduleId, caregiverId);
 
-        return ResponseEntity.ok(BaseResponseDto.success(null, "Schedule deleted successfully"));
+        return ResponseEntity.ok(ApiResponseDto.success(200, "Schedule deleted successfully", null));
     }
 
     @GetMapping(path = "/caregiver", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<BaseResponseDto<List<ScheduleResponseDto>>> getCurrentCaregiverSchedules(HttpServletRequest request) {
+    public ResponseEntity<ApiResponseDto<List<ScheduleResponseDto>>> getCurrentCaregiverSchedules(HttpServletRequest request) {
         String token = extractToken(request);
         TokenVerificationResponseDto verification = tokenVerificationService.verifyToken(token);
 
@@ -97,42 +97,42 @@ public class ScheduleController {
         UUID caregiverId = UUID.fromString(verification.getUserId());
         List<ScheduleResponseDto> schedules = scheduleService.getCaregiverSchedules(caregiverId);
 
-        return ResponseEntity.ok(BaseResponseDto.success(schedules, "Retrieved caregiver schedules"));
+        return ResponseEntity.ok(ApiResponseDto.success(200, "Retrieved caregiver schedules", schedules));
     }
 
     @GetMapping(path = "/caregiver/{caregiverId}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<BaseResponseDto<List<ScheduleResponseDto>>> getCaregiverSchedulesByIdParam(
+    public ResponseEntity<ApiResponseDto<List<ScheduleResponseDto>>> getCaregiverSchedulesByIdParam(
             @PathVariable UUID caregiverId,
             HttpServletRequest request) {
 
         verifyToken(request);
         List<ScheduleResponseDto> schedules = scheduleService.getCaregiverSchedules(caregiverId);
 
-        return ResponseEntity.ok(BaseResponseDto.success(schedules, "Retrieved caregiver schedules"));
+        return ResponseEntity.ok(ApiResponseDto.success(200, "Retrieved caregiver schedules", schedules));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<BaseResponseDto<Object>> handleIllegalArgumentException(IllegalArgumentException ex) {
+    public ResponseEntity<ApiResponseDto<Object>> handleIllegalArgumentException(IllegalArgumentException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(BaseResponseDto.error(HttpStatus.BAD_REQUEST.value(), ex.getMessage()));
+                .body(ApiResponseDto.error(HttpStatus.BAD_REQUEST.value(), ex.getMessage()));
     }
 
     @ExceptionHandler(ScheduleConflictException.class)
-    public ResponseEntity<BaseResponseDto<Object>> handleScheduleConflictException(ScheduleConflictException ex) {
+    public ResponseEntity<ApiResponseDto<Object>> handleScheduleConflictException(ScheduleConflictException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(BaseResponseDto.error(HttpStatus.CONFLICT.value(), ex.getMessage()));
+                .body(ApiResponseDto.error(HttpStatus.CONFLICT.value(), ex.getMessage()));
     }
 
     @ExceptionHandler(AuthenticationException.class)
-    public ResponseEntity<BaseResponseDto<Object>> handleAuthenticationException(AuthenticationException ex) {
+    public ResponseEntity<ApiResponseDto<Object>> handleAuthenticationException(AuthenticationException ex) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(BaseResponseDto.error(HttpStatus.UNAUTHORIZED.value(), ex.getMessage()));
+                .body(ApiResponseDto.error(HttpStatus.UNAUTHORIZED.value(), ex.getMessage()));
     }
 
     @ExceptionHandler(ScheduleException.class)
-    public ResponseEntity<BaseResponseDto<Object>> handleScheduleException(ScheduleException ex) {
+    public ResponseEntity<ApiResponseDto<Object>> handleScheduleException(ScheduleException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(BaseResponseDto.error(HttpStatus.BAD_REQUEST.value(), ex.getMessage()));
+                .body(ApiResponseDto.error(HttpStatus.BAD_REQUEST.value(), ex.getMessage()));
     }
 
     private String extractToken(HttpServletRequest request) {

@@ -1,6 +1,6 @@
 package id.ac.ui.cs.advprog.bekonsultasi.controller;
 
-import id.ac.ui.cs.advprog.bekonsultasi.dto.BaseResponseDto;
+import id.ac.ui.cs.advprog.bekonsultasi.dto.ApiResponseDto;
 import id.ac.ui.cs.advprog.bekonsultasi.dto.CreateScheduleDto;
 import id.ac.ui.cs.advprog.bekonsultasi.dto.ScheduleResponseDto;
 import id.ac.ui.cs.advprog.bekonsultasi.dto.TokenVerificationResponseDto;
@@ -91,7 +91,7 @@ class ScheduleControllerTest {
             when(tokenVerificationService.verifyToken(token)).thenReturn(tokenResponse);
             when(scheduleService.createSchedule(eq(createScheduleDto), eq(caregiverId))).thenReturn(scheduleResponse);
 
-            ResponseEntity<BaseResponseDto<ScheduleResponseDto>> response =
+            ResponseEntity<ApiResponseDto<ScheduleResponseDto>> response =
                     scheduleController.createCaregiverSchedule(createScheduleDto, request);
 
             assertEquals(HttpStatus.CREATED, response.getStatusCode());
@@ -142,7 +142,7 @@ class ScheduleControllerTest {
             when(scheduleService.updateSchedule(eq(scheduleId), eq(updateDto), eq(caregiverId)))
                     .thenReturn(updatedResponse);
 
-            ResponseEntity<BaseResponseDto<ScheduleResponseDto>> response =
+            ResponseEntity<ApiResponseDto<ScheduleResponseDto>> response =
                     scheduleController.updateCaregiverSchedule(scheduleId, updateDto, request);
 
             assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -176,7 +176,7 @@ class ScheduleControllerTest {
             when(tokenVerificationService.verifyToken(token)).thenReturn(tokenResponse);
             doNothing().when(scheduleService).deleteSchedule(scheduleId, caregiverId);
 
-            ResponseEntity<BaseResponseDto<Object>> response =
+            ResponseEntity<ApiResponseDto<Object>> response =
                     scheduleController.deleteCaregiverSchedule(scheduleId, request);
 
             assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -222,7 +222,7 @@ class ScheduleControllerTest {
 
             when(scheduleService.getCaregiverSchedules(caregiverId)).thenReturn(expectedSchedules);
 
-            ResponseEntity<BaseResponseDto<List<ScheduleResponseDto>>> response =
+            ResponseEntity<ApiResponseDto<List<ScheduleResponseDto>>> response =
                     scheduleController.getCurrentCaregiverSchedules(request);
 
             assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -258,7 +258,7 @@ class ScheduleControllerTest {
 
             when(scheduleService.getCaregiverSchedules(targetCaregiverId)).thenReturn(expectedSchedules);
 
-            ResponseEntity<BaseResponseDto<List<ScheduleResponseDto>>> response =
+            ResponseEntity<ApiResponseDto<List<ScheduleResponseDto>>> response =
                     scheduleController.getCaregiverSchedulesByIdParam(targetCaregiverId, request);
 
             assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -278,7 +278,7 @@ class ScheduleControllerTest {
             String errorMessage = "Test error message";
             IllegalArgumentException ex = new IllegalArgumentException(errorMessage);
 
-            ResponseEntity<BaseResponseDto<Object>> response =
+            ResponseEntity<ApiResponseDto<Object>> response =
                     scheduleController.handleIllegalArgumentException(ex);
 
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
@@ -293,7 +293,7 @@ class ScheduleControllerTest {
             String errorMessage = "Test conflict message";
             ScheduleConflictException ex = new ScheduleConflictException(errorMessage);
 
-            ResponseEntity<BaseResponseDto<Object>> response =
+            ResponseEntity<ApiResponseDto<Object>> response =
                     scheduleController.handleScheduleConflictException(ex);
 
             assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
@@ -308,7 +308,7 @@ class ScheduleControllerTest {
             String errorMessage = "Test auth message";
             AuthenticationException ex = new AuthenticationException(errorMessage);
 
-            ResponseEntity<BaseResponseDto<Object>> response =
+            ResponseEntity<ApiResponseDto<Object>> response =
                     scheduleController.handleAuthenticationException(ex);
 
             assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
@@ -323,7 +323,7 @@ class ScheduleControllerTest {
             String errorMessage = "Test schedule error";
             ScheduleException ex = new ScheduleException(errorMessage);
 
-            ResponseEntity<BaseResponseDto<Object>> response =
+            ResponseEntity<ApiResponseDto<Object>> response =
                     scheduleController.handleScheduleException(ex);
 
             assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
