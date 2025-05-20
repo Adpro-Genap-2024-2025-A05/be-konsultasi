@@ -30,11 +30,11 @@ Mitigasi: Desain baru memperkenalkan arsitektur failover dengan menambahkan Back
 
 ## Component Diagram
 
-![Component Diagram Bastian](./images/component-diagram-bas.png)
+![Component Diagram Bastian](./images/component-diagram-bastian.png)
 
 ## Code Diagram
 
-![Code Diagram Bastian](./images/code-diagram-bas.png)
+![Code Diagram Bastian](./images/code-diagram-bastian.png)
 
 # Individu (Steven Setiawan)
 
