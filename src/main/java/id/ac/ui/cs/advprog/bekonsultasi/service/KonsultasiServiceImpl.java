@@ -11,10 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.DayOfWeek;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -30,9 +27,12 @@ public class KonsultasiServiceImpl implements KonsultasiService {
     @Transactional
     public KonsultasiResponseDto createKonsultasi(CreateKonsultasiDto dto, UUID pacilianId) {
         Schedule schedule = findScheduleById(dto.getScheduleId());
-        validateScheduleAvailability(schedule);
 
-        LocalDateTime scheduleDateTime = calculateNextDateTimeForSchedule(schedule);
+        LocalDateTime scheduleDateTime = dto.getScheduleDateTime();
+
+        if (!scheduleService.isScheduleAvailableForDateTime(dto.getScheduleId(), scheduleDateTime)) {
+            throw new ScheduleException("Schedule is not available at the requested date and time");
+        }
 
         List<String> completedStatuses = List.of("CANCELLED", "DONE");
         List<Konsultasi> activeKonsultations = konsultasiRepository.findByPacilianIdAndStatusNotIn(
@@ -53,7 +53,6 @@ public class KonsultasiServiceImpl implements KonsultasiService {
         Konsultasi konsultasi = buildNewKonsultasi(dto, pacilianId, schedule, scheduleDateTime);
 
         Konsultasi savedKonsultasi = konsultasiRepository.save(konsultasi);
-        scheduleService.updateScheduleStatus(dto.getScheduleId(), "UNAVAILABLE");
 
         return convertToResponseDto(savedKonsultasi);
     }
@@ -97,8 +96,6 @@ public class KonsultasiServiceImpl implements KonsultasiService {
             konsultasi.cancel();
             Konsultasi savedKonsultasi = konsultasiRepository.save(konsultasi);
 
-            scheduleService.updateScheduleStatus(savedKonsultasi.getScheduleId(), "AVAILABLE");
-
             return convertToResponseDto(savedKonsultasi);
         } catch (IllegalStateException e) {
             throw new ScheduleException(e.getMessage());
@@ -116,7 +113,6 @@ public class KonsultasiServiceImpl implements KonsultasiService {
         try {
             konsultasi.complete();
             Konsultasi savedKonsultasi = konsultasiRepository.save(konsultasi);
-            scheduleService.updateScheduleStatus(savedKonsultasi.getScheduleId(), "AVAILABLE");
 
             return convertToResponseDto(savedKonsultasi);
         } catch (IllegalStateException e) {
@@ -126,8 +122,7 @@ public class KonsultasiServiceImpl implements KonsultasiService {
 
     @Override
     @Transactional
-    public KonsultasiResponseDto rescheduleKonsultasi(UUID konsultasiId, RescheduleKonsultasiDto dto, UUID userId,
-                                                      String role) {
+    public KonsultasiResponseDto rescheduleKonsultasi(UUID konsultasiId, RescheduleKonsultasiDto dto, UUID userId, String role) {
         Konsultasi konsultasi = findKonsultasiById(konsultasiId);
         validateUserRoleAndOwnership(konsultasi, userId, role);
 
@@ -135,10 +130,63 @@ public class KonsultasiServiceImpl implements KonsultasiService {
             throw new ScheduleException("Consultation can only be rescheduled when in REQUESTED state");
         }
 
+        UUID targetScheduleId = konsultasi.getScheduleId();
+
+        if (dto.getNewScheduleId() != null) {
+
+            Schedule newSchedule = findScheduleById(dto.getNewScheduleId());
+
+            if (!newSchedule.getCaregiverId().equals(konsultasi.getCaregiverId())) {
+                throw new ScheduleException("Cannot reschedule to a different caregiver's schedule");
+            }
+
+            targetScheduleId = dto.getNewScheduleId();
+        }
+
+        LocalDateTime currentDateTime = konsultasi.getScheduleDateTime();
+
+        List<Konsultasi> otherKonsultations = konsultasiRepository.findByScheduleId(targetScheduleId)
+                .stream()
+                .filter(k -> !k.getId().equals(konsultasiId))
+                .collect(Collectors.toList());
+
+        boolean isAvailable = true;
+        for (Konsultasi k : otherKonsultations) {
+            if (!k.getStatus().equals("CANCELLED") && !k.getStatus().equals("DONE")) {
+
+                if (isTimeConflict(k.getScheduleDateTime(), dto.getNewScheduleDateTime())) {
+                    isAvailable = false;
+                    break;
+                }
+
+                if ("RESCHEDULED".equals(k.getStatus()) && k.getOriginalScheduleDateTime() != null) {
+                    if (isTimeConflict(k.getOriginalScheduleDateTime(), dto.getNewScheduleDateTime())) {
+                        isAvailable = false;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (!isAvailable) {
+            throw new ScheduleException("The requested date and time are not available");
+        }
+
         initializeState(konsultasi);
 
         try {
+
+            if (dto.getNewScheduleId() != null) {
+                konsultasi.setScheduleId(targetScheduleId);
+            }
+
+            konsultasi.setOriginalScheduleDateTime(currentDateTime);
+
             konsultasi.reschedule(dto.getNewScheduleDateTime());
+
+            if (dto.getNotes() != null) {
+                konsultasi.setNotes(dto.getNotes());
+            }
 
             Konsultasi savedKonsultasi = konsultasiRepository.save(konsultasi);
 
@@ -240,12 +288,6 @@ public class KonsultasiServiceImpl implements KonsultasiService {
         }
     }
 
-    private void validateScheduleAvailability(Schedule schedule) {
-        if (!"AVAILABLE".equals(schedule.getStatus())) {
-            throw new ScheduleException("Schedule is not available");
-        }
-    }
-
     private void initializeState(Konsultasi konsultasi) {
         switch (konsultasi.getStatus()) {
             case "REQUESTED" -> konsultasi.setState(new RequestedState());
@@ -272,22 +314,11 @@ public class KonsultasiServiceImpl implements KonsultasiService {
         return konsultasi;
     }
 
-    private LocalDateTime calculateNextDateTimeForSchedule(Schedule schedule) {
-        LocalDateTime now = LocalDateTime.now();
-        DayOfWeek targetDay = schedule.getDay();
-        LocalTime targetTime = schedule.getStartTime();
+    private boolean isTimeConflict(LocalDateTime time1, LocalDateTime time2) {
+        LocalDateTime end1 = time1.plusHours(1);
+        LocalDateTime end2 = time2.plusHours(1);
 
-        LocalDateTime targetDateTime = now.with(TemporalAdjusters.nextOrSame(targetDay))
-                .withHour(targetTime.getHour())
-                .withMinute(targetTime.getMinute())
-                .withSecond(0)
-                .withNano(0);
-
-        if (targetDateTime.isBefore(now) && targetDateTime.getDayOfWeek() == now.getDayOfWeek()) {
-            targetDateTime = targetDateTime.plusWeeks(1);
-        }
-
-        return targetDateTime;
+        return time1.isBefore(end2) && time2.isBefore(end1);
     }
 
     private List<KonsultasiResponseDto> convertToDtoList(List<Konsultasi> konsultasiList) {

@@ -1,5 +1,6 @@
 package id.ac.ui.cs.advprog.bekonsultasi.service;
 
+import id.ac.ui.cs.advprog.bekonsultasi.dto.CreateOneTimeScheduleDto;
 import id.ac.ui.cs.advprog.bekonsultasi.dto.CreateScheduleDto;
 import id.ac.ui.cs.advprog.bekonsultasi.dto.ScheduleResponseDto;
 import id.ac.ui.cs.advprog.bekonsultasi.exception.AuthenticationException;
@@ -7,8 +8,6 @@ import id.ac.ui.cs.advprog.bekonsultasi.exception.ScheduleConflictException;
 import id.ac.ui.cs.advprog.bekonsultasi.exception.ScheduleException;
 import id.ac.ui.cs.advprog.bekonsultasi.model.Konsultasi;
 import id.ac.ui.cs.advprog.bekonsultasi.model.Schedule;
-import id.ac.ui.cs.advprog.bekonsultasi.model.ScheduleState.AvailableState;
-import id.ac.ui.cs.advprog.bekonsultasi.model.ScheduleState.UnavailableState;
 import id.ac.ui.cs.advprog.bekonsultasi.repository.KonsultasiRepository;
 import id.ac.ui.cs.advprog.bekonsultasi.repository.ScheduleRepository;
 import id.ac.ui.cs.advprog.bekonsultasi.service.factory.ScheduleFactory;
@@ -16,11 +15,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.*;
+import java.time.temporal.TemporalAdjusters;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
-import java.time.DayOfWeek;
-import java.time.LocalTime;
 
 @Service
 @RequiredArgsConstructor
@@ -50,11 +50,13 @@ public class ScheduleServiceImpl implements ScheduleService {
             throw new AuthenticationException("You can only update your own schedules");
         }
 
-        if ("UNAVAILABLE".equals(schedule.getStatus())) {
-            List<Konsultasi> activeKonsultations = konsultasiRepository.findByScheduleId(scheduleId);
-            if (!activeKonsultations.isEmpty()) {
-                throw new ScheduleException("Cannot update schedule that is currently used in active consultations");
-            }
+        List<Konsultasi> activeKonsultations = konsultasiRepository.findByScheduleId(scheduleId).stream()
+                .filter(k -> !k.getStatus().equals("CANCELLED") && !k.getStatus().equals("DONE"))
+                .filter(k -> k.getScheduleDateTime().isAfter(LocalDateTime.now()))
+                .toList();
+
+        if (!activeKonsultations.isEmpty()) {
+            throw new ScheduleException("Cannot update schedule that is currently used in active consultations");
         }
 
         validateScheduleTimes(dto);
@@ -82,16 +84,159 @@ public class ScheduleServiceImpl implements ScheduleService {
             throw new AuthenticationException("You can only delete your own schedules");
         }
 
-        List<Konsultasi> linkedKonsultations = konsultasiRepository.findByScheduleId(scheduleId);
+        List<Konsultasi> futureKonsultations = konsultasiRepository.findByScheduleId(scheduleId).stream()
+                .filter(k -> !k.getStatus().equals("CANCELLED") && !k.getStatus().equals("DONE"))
+                .filter(k -> k.getScheduleDateTime().isAfter(LocalDateTime.now()))
+                .toList();
 
-        boolean hasActiveKonsultasi = linkedKonsultations.stream()
-                .anyMatch(k -> !k.getStatus().equals("CANCELLED") && !k.getStatus().equals("DONE"));
-
-        if (hasActiveKonsultasi) {
-            throw new ScheduleException("Cannot delete schedule with active consultations");
+        if (!futureKonsultations.isEmpty()) {
+            throw new ScheduleException("Cannot delete schedule with future consultations");
         }
 
         scheduleRepository.deleteById(scheduleId);
+    }
+
+    @Override
+    public List<ScheduleResponseDto> getCaregiverSchedules(UUID caregiverId) {
+        List<Schedule> schedules = scheduleRepository.findByCaregiverId(caregiverId);
+        return convertToResponseDtoList(schedules);
+    }
+
+    @Override
+    public List<ScheduleResponseDto> getAllSchedules() {
+        List<Schedule> schedules = scheduleRepository.findAll();
+        return convertToResponseDtoList(schedules);
+    }
+
+    @Override
+    public boolean isScheduleAvailableForDateTime(UUID scheduleId, LocalDateTime dateTime) {
+        Schedule schedule = findScheduleById(scheduleId);
+
+        if (schedule.isOneTime()) {
+            if (schedule.getSpecificDate() == null ||
+                    !schedule.getSpecificDate().equals(dateTime.toLocalDate())) {
+                return false;
+            }
+        }
+
+        else if (schedule.getDay() != dateTime.getDayOfWeek()) {
+            return false;
+        }
+
+        LocalTime time = dateTime.toLocalTime();
+        if (time.isBefore(schedule.getStartTime()) || !time.isBefore(schedule.getEndTime())) {
+            return false;
+        }
+
+        List<Konsultasi> existingConsultations = konsultasiRepository.findByScheduleId(scheduleId);
+
+        return existingConsultations.stream()
+                .filter(k -> !k.getStatus().equals("CANCELLED") && !k.getStatus().equals("DONE"))
+                .noneMatch(k -> {
+
+                    if (isTimeConflict(k.getScheduleDateTime(), dateTime)) {
+                        return true;
+                    }
+
+                    if ("RESCHEDULED".equals(k.getStatus()) && k.getOriginalScheduleDateTime() != null) {
+                        return isTimeConflict(k.getOriginalScheduleDateTime(), dateTime);
+                    }
+
+                    return false;
+                });
+    }
+
+    @Override
+    public List<LocalDateTime> getAvailableDateTimesForSchedule(UUID scheduleId, int weeksAhead) {
+        Schedule schedule = findScheduleById(scheduleId);
+        List<LocalDateTime> availableTimes = new ArrayList<>();
+
+        if (schedule.isOneTime()) {
+            if (schedule.getSpecificDate() != null) {
+                LocalDateTime dateTime = LocalDateTime.of(
+                        schedule.getSpecificDate(),
+                        schedule.getStartTime()
+                );
+
+                if (dateTime.isAfter(LocalDateTime.now()) &&
+                        isScheduleAvailableForDateTime(scheduleId, dateTime)) {
+                    availableTimes.add(dateTime);
+                }
+            }
+            return availableTimes;
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        LocalDate today = now.toLocalDate();
+
+        LocalDate nextDay = today.with(TemporalAdjusters.nextOrSame(schedule.getDay()));
+
+        if (nextDay.equals(today) && now.toLocalTime().isAfter(schedule.getStartTime())) {
+            nextDay = today.with(TemporalAdjusters.next(schedule.getDay()));
+        }
+
+        for (int i = 0; i < weeksAhead; i++) {
+            LocalDate dateToCheck = nextDay.plusWeeks(i);
+            LocalDateTime dateTimeToCheck = LocalDateTime.of(
+                    dateToCheck,
+                    schedule.getStartTime()
+            );
+
+            if (isScheduleAvailableForDateTime(scheduleId, dateTimeToCheck)) {
+                availableTimes.add(dateTimeToCheck);
+            }
+        }
+
+        return availableTimes;
+    }
+
+    @Override
+    public ScheduleResponseDto createOneTimeSchedule(CreateOneTimeScheduleDto dto, UUID caregiverId) {
+        if (dto.getSpecificDate().isBefore(LocalDate.now())) {
+            throw new IllegalArgumentException("One-time schedule date must be in the future");
+        }
+
+        validateScheduleTimes(dto.getStartTime(), dto.getEndTime());
+
+        LocalDateTime startDateTime = LocalDateTime.of(dto.getSpecificDate(), dto.getStartTime());
+        LocalDateTime endDateTime = LocalDateTime.of(dto.getSpecificDate(), dto.getEndTime());
+
+        List<Schedule> caregiverSchedules = scheduleRepository.findByCaregiverId(caregiverId);
+
+        for (Schedule existingSchedule : caregiverSchedules) {
+
+            if (existingSchedule.isOneTime() && existingSchedule.getSpecificDate() != null) {
+                if (existingSchedule.getSpecificDate().equals(dto.getSpecificDate())) {
+
+                    if (isTimeOverlapping(
+                            existingSchedule.getStartTime(),
+                            existingSchedule.getEndTime(),
+                            dto.getStartTime(),
+                            dto.getEndTime())) {
+                        throw new ScheduleConflictException(
+                                "Schedule conflicts with existing one-time schedule on " +
+                                        dto.getSpecificDate());
+                    }
+                }
+            }
+
+            else if (existingSchedule.getDay() == dto.getSpecificDate().getDayOfWeek()) {
+
+                if (isTimeOverlapping(
+                        existingSchedule.getStartTime(),
+                        existingSchedule.getEndTime(),
+                        dto.getStartTime(),
+                        dto.getEndTime())) {
+                    throw new ScheduleConflictException(
+                            "Schedule conflicts with existing recurring schedule on " +
+                                    dto.getSpecificDate().getDayOfWeek());
+                }
+            }
+        }
+
+        Schedule schedule = scheduleFactory.createOneTimeSchedule(dto, caregiverId);
+        Schedule savedSchedule = scheduleRepository.save(schedule);
+        return convertToDto(savedSchedule);
     }
 
     private void validateScheduleTimes(CreateScheduleDto dto) {
@@ -143,30 +288,11 @@ public class ScheduleServiceImpl implements ScheduleService {
                 newEnd.equals(existingEnd);
     }
 
-    @Override
-    public List<ScheduleResponseDto> getCaregiverSchedules(UUID caregiverId) {
-        List<Schedule> schedules = scheduleRepository.findByCaregiverId(caregiverId);
-        initializeScheduleStates(schedules);
-        return convertToResponseDtoList(schedules);
-    }
+    private boolean isTimeConflict(LocalDateTime time1, LocalDateTime time2) {
+        LocalDateTime end1 = time1.plusHours(1);
+        LocalDateTime end2 = time2.plusHours(1);
 
-    @Override
-    public List<ScheduleResponseDto> getAllSchedules() {
-        List<Schedule> schedules = scheduleRepository.findAll();
-        initializeScheduleStates(schedules);
-        return convertToResponseDtoList(schedules);
-    }
-
-    private void initializeScheduleStates(List<Schedule> schedules) {
-        schedules.forEach(this::initializeScheduleState);
-    }
-
-    private void initializeScheduleState(Schedule schedule) {
-        switch (schedule.getStatus()) {
-            case "AVAILABLE" -> schedule.setState(new AvailableState());
-            case "UNAVAILABLE" -> schedule.setState(new UnavailableState());
-            default -> throw new IllegalStateException("Unknown schedule status: " + schedule.getStatus());
-        }
+        return time1.isBefore(end2) && time2.isBefore(end1);
     }
 
     private List<ScheduleResponseDto> convertToResponseDtoList(List<Schedule> schedules) {
@@ -182,28 +308,19 @@ public class ScheduleServiceImpl implements ScheduleService {
                 .day(schedule.getDay())
                 .startTime(schedule.getStartTime())
                 .endTime(schedule.getEndTime())
-                .status(schedule.getStatus())
+                .specificDate(schedule.getSpecificDate())
+                .oneTime(schedule.isOneTime())
                 .build();
     }
 
-    @Override
-    public void updateScheduleStatus(UUID scheduleId, String status) {
-        Schedule schedule = findScheduleById(scheduleId);
-        initializeScheduleState(schedule);
-
-        if ("AVAILABLE".equals(status)) {
-            schedule.makeAvailable();
-        } else if ("UNAVAILABLE".equals(status)) {
-            schedule.makeUnavailable();
-        } else {
-            throw new IllegalArgumentException("Invalid status: " + status);
-        }
-
-        scheduleRepository.save(schedule);
-    }
-
-    private Schedule findScheduleById(UUID scheduleId) {
+    public Schedule findScheduleById(UUID scheduleId) {
         return scheduleRepository.findById(scheduleId)
                 .orElseThrow(() -> new IllegalArgumentException("Schedule not found with id: " + scheduleId));
+    }
+
+    private void validateScheduleTimes(LocalTime startTime, LocalTime endTime) {
+        if (endTime.isBefore(startTime)) {
+            throw new IllegalArgumentException("End time cannot be before start time");
+        }
     }
 }
