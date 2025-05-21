@@ -1,7 +1,5 @@
 package id.ac.ui.cs.advprog.bekonsultasi.model;
 
-import id.ac.ui.cs.advprog.bekonsultasi.model.ScheduleState.ScheduleState;
-import id.ac.ui.cs.advprog.bekonsultasi.model.ScheduleState.AvailableState;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -9,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.UUID;
 
@@ -36,34 +35,9 @@ public class Schedule {
     @Column(nullable = false)
     private LocalTime endTime;
 
-    @Transient
-    private ScheduleState state;
+    @Column
+    private LocalDate specificDate;
 
     @Column(nullable = false)
-    private String status;
-
-    @PrePersist
-    public void onCreate() {
-        if (status == null) {
-            status = "AVAILABLE";
-            state = new AvailableState();
-        }
-    }
-
-    public void setState(ScheduleState state) {
-        this.state = state;
-        this.status = state.getStatus();
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void makeAvailable() {
-        state.makeAvailable(this);
-    }
-
-    public void makeUnavailable() {
-        state.makeUnavailable(this);
-    }
+    private boolean oneTime;
 }
