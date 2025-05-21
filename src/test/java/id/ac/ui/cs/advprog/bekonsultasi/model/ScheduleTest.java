@@ -1,101 +1,88 @@
 package id.ac.ui.cs.advprog.bekonsultasi.model;
 
-import id.ac.ui.cs.advprog.bekonsultasi.model.ScheduleState.AvailableState;
-import id.ac.ui.cs.advprog.bekonsultasi.model.ScheduleState.ScheduleState;
-import id.ac.ui.cs.advprog.bekonsultasi.model.ScheduleState.UnavailableState;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-
 import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.*;
 
 class ScheduleTest {
 
-    private Schedule schedule;
+    @Test
+    void testBuildSchedule() {
+        UUID caregiverId = UUID.randomUUID();
+        DayOfWeek day = DayOfWeek.MONDAY;
+        LocalTime startTime = LocalTime.of(10, 0);
+        LocalTime endTime = LocalTime.of(11, 0);
 
-    @Mock
-    private ScheduleState availableState;
-
-    @Mock
-    private ScheduleState unavailableState;
-
-    private final UUID caregiverId = UUID.randomUUID();
-
-    @BeforeEach
-    void setUp() {
-        MockitoAnnotations.openMocks(this);
-
-        when(availableState.getStatus()).thenReturn("AVAILABLE");
-        when(unavailableState.getStatus()).thenReturn("UNAVAILABLE");
-
-        schedule = Schedule.builder()
-                .id(UUID.randomUUID())
+        Schedule schedule = Schedule.builder()
                 .caregiverId(caregiverId)
-                .day(DayOfWeek.MONDAY)
-                .startTime(LocalTime.of(9, 0))
-                .endTime(LocalTime.of(10, 0))
-                .status("AVAILABLE")
+                .day(day)
+                .startTime(startTime)
+                .endTime(endTime)
+                .oneTime(false)
                 .build();
+
+        assertEquals(caregiverId, schedule.getCaregiverId());
+        assertEquals(day, schedule.getDay());
+        assertEquals(startTime, schedule.getStartTime());
+        assertEquals(endTime, schedule.getEndTime());
+        assertFalse(schedule.isOneTime());
+        assertNull(schedule.getSpecificDate());
     }
 
     @Test
-    void testSetState() {
-        schedule.setState(availableState);
-        assertEquals("AVAILABLE", schedule.getStatus());
+    void testBuildOneTimeSchedule() {
+        UUID caregiverId = UUID.randomUUID();
+        DayOfWeek day = DayOfWeek.MONDAY;
+        LocalTime startTime = LocalTime.of(10, 0);
+        LocalTime endTime = LocalTime.of(11, 0);
+        LocalDate specificDate = LocalDate.of(2025, 6, 2);
 
-        schedule.setState(unavailableState);
-        assertEquals("UNAVAILABLE", schedule.getStatus());
+        Schedule schedule = Schedule.builder()
+                .caregiverId(caregiverId)
+                .day(day)
+                .startTime(startTime)
+                .endTime(endTime)
+                .specificDate(specificDate)
+                .oneTime(true)
+                .build();
+
+        assertEquals(caregiverId, schedule.getCaregiverId());
+        assertEquals(day, schedule.getDay());
+        assertEquals(startTime, schedule.getStartTime());
+        assertEquals(endTime, schedule.getEndTime());
+        assertTrue(schedule.isOneTime());
+        assertEquals(specificDate, schedule.getSpecificDate());
     }
 
     @Test
-    void testGetStatus() {
-        schedule.setState(availableState);
-        assertEquals("AVAILABLE", schedule.getStatus());
-    }
+    void testSettersAndGetters() {
+        Schedule schedule = new Schedule();
 
-    @Test
-    void testMakeAvailable() {
-        schedule.setState(unavailableState);
-        when(unavailableState.getStatus()).thenReturn("UNAVAILABLE");
-        AvailableState realAvailableState = new AvailableState();
-        when(unavailableState.getStatus()).thenReturn("UNAVAILABLE");
-        schedule = new Schedule() {
-            @Override
-            public void setState(ScheduleState state) {
-                super.setState(realAvailableState);
-            }
-        };
-        schedule.setState(unavailableState);
-        schedule.makeAvailable();
-        assertEquals("AVAILABLE", schedule.getStatus());
-    }
+        UUID id = UUID.randomUUID();
+        UUID caregiverId = UUID.randomUUID();
+        DayOfWeek day = DayOfWeek.MONDAY;
+        LocalTime startTime = LocalTime.of(10, 0);
+        LocalTime endTime = LocalTime.of(11, 0);
+        LocalDate specificDate = LocalDate.of(2025, 6, 2);
 
-    @Test
-    void testMakeUnavailable() {
-        schedule.setState(availableState);
-        UnavailableState realUnavailableState = new UnavailableState();
-        when(availableState.getStatus()).thenReturn("AVAILABLE");
-        schedule = new Schedule() {
-            @Override
-            public void setState(ScheduleState state) {
-                super.setState(realUnavailableState);
-            }
-        };
-        schedule.setState(availableState);
-        schedule.makeUnavailable();
-        assertEquals("UNAVAILABLE", schedule.getStatus());
-    }
+        schedule.setId(id);
+        schedule.setCaregiverId(caregiverId);
+        schedule.setDay(day);
+        schedule.setStartTime(startTime);
+        schedule.setEndTime(endTime);
+        schedule.setSpecificDate(specificDate);
+        schedule.setOneTime(true);
 
-    @Test
-    void testOnCreate() {
-        Schedule newSchedule = new Schedule();
-        newSchedule.onCreate();
-        assertEquals("AVAILABLE", newSchedule.getStatus());
+        assertEquals(id, schedule.getId());
+        assertEquals(caregiverId, schedule.getCaregiverId());
+        assertEquals(day, schedule.getDay());
+        assertEquals(startTime, schedule.getStartTime());
+        assertEquals(endTime, schedule.getEndTime());
+        assertEquals(specificDate, schedule.getSpecificDate());
+        assertTrue(schedule.isOneTime());
     }
 }
