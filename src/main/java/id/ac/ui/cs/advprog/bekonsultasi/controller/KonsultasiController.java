@@ -5,6 +5,7 @@ import id.ac.ui.cs.advprog.bekonsultasi.enums.Role;
 import id.ac.ui.cs.advprog.bekonsultasi.exception.AuthenticationException;
 import id.ac.ui.cs.advprog.bekonsultasi.exception.ScheduleException;
 import id.ac.ui.cs.advprog.bekonsultasi.service.KonsultasiService;
+import id.ac.ui.cs.advprog.bekonsultasi.service.ScheduleService;
 import id.ac.ui.cs.advprog.bekonsultasi.service.TokenVerificationService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -14,6 +15,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -23,6 +25,7 @@ import java.util.UUID;
 @CrossOrigin(origins = "*")
 public class KonsultasiController {
     private final KonsultasiService konsultasiService;
+    private final ScheduleService scheduleService;
     private final TokenVerificationService tokenVerificationService;
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
@@ -35,6 +38,17 @@ public class KonsultasiController {
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponseDto.success(201, "Created successfully", response));
+    }
+
+    @GetMapping(path = "/schedule/{scheduleId}/available-times", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponseDto<List<LocalDateTime>>> getAvailableTimesForSchedule(
+            @PathVariable UUID scheduleId,
+            @RequestParam(defaultValue = "4") int weeksAhead,
+            HttpServletRequest request) {
+        verifyToken(request);
+        List<LocalDateTime> availableTimes = scheduleService.getAvailableDateTimesForSchedule(scheduleId, weeksAhead);
+
+        return ResponseEntity.ok(ApiResponseDto.success(200, "Retrieved available times", availableTimes));
     }
 
     @PostMapping(path = "/{konsultasiId}/confirm", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -172,7 +186,7 @@ public class KonsultasiController {
         String token = extractToken(request);
         return tokenVerificationService.verifyToken(token);
     }
-    
+
     private TokenVerificationResponseDto verifyTokenAndRole(HttpServletRequest request, Role requiredRole, String errorMessage) {
         TokenVerificationResponseDto verification = verifyToken(request);
         if (verification.getRole() != requiredRole) {
