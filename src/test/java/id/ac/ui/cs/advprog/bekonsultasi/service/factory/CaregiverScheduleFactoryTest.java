@@ -1,54 +1,72 @@
 package id.ac.ui.cs.advprog.bekonsultasi.service.factory;
 
+import id.ac.ui.cs.advprog.bekonsultasi.dto.CreateOneTimeScheduleDto;
 import id.ac.ui.cs.advprog.bekonsultasi.dto.CreateScheduleDto;
 import id.ac.ui.cs.advprog.bekonsultasi.model.Schedule;
-import id.ac.ui.cs.advprog.bekonsultasi.model.ScheduleState.AvailableState;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class CaregiverScheduleFactoryTest {
+
     private CaregiverScheduleFactory factory;
-    private CreateScheduleDto dto;
     private UUID caregiverId;
 
     @BeforeEach
     void setUp() {
         factory = new CaregiverScheduleFactory();
         caregiverId = UUID.randomUUID();
-
-        dto = new CreateScheduleDto();
-        dto.setDay(DayOfWeek.MONDAY);
-        dto.setStartTime(LocalTime.of(9, 0));
-        dto.setEndTime(LocalTime.of(10, 0));
     }
 
     @Test
     void testCreateSchedule() {
+        DayOfWeek day = DayOfWeek.MONDAY;
+        LocalTime startTime = LocalTime.of(10, 0);
+        LocalTime endTime = LocalTime.of(11, 0);
+
+        CreateScheduleDto dto = CreateScheduleDto.builder()
+                .day(day)
+                .startTime(startTime)
+                .endTime(endTime)
+                .build();
+
         Schedule schedule = factory.createSchedule(dto, caregiverId);
 
         assertNotNull(schedule);
         assertEquals(caregiverId, schedule.getCaregiverId());
-        assertEquals(DayOfWeek.MONDAY, schedule.getDay());
-        assertEquals(LocalTime.of(9, 0), schedule.getStartTime());
-        assertEquals(LocalTime.of(10, 0), schedule.getEndTime());
-        assertEquals("AVAILABLE", schedule.getStatus());
-        assertTrue(schedule.getState() instanceof AvailableState);
+        assertEquals(day, schedule.getDay());
+        assertEquals(startTime, schedule.getStartTime());
+        assertEquals(endTime, schedule.getEndTime());
+        assertFalse(schedule.isOneTime());
+        assertNull(schedule.getSpecificDate());
     }
 
     @Test
-    void testCreateScheduleWithDifferentTimes() {
-        dto.setStartTime(LocalTime.of(14, 0));
-        dto.setEndTime(LocalTime.of(15, 30));
+    void testCreateOneTimeSchedule() {
+        LocalDate specificDate = LocalDate.of(2025, 6, 2);
+        LocalTime startTime = LocalTime.of(10, 0);
+        LocalTime endTime = LocalTime.of(11, 0);
 
-        Schedule schedule = factory.createSchedule(dto, caregiverId);
+        CreateOneTimeScheduleDto dto = CreateOneTimeScheduleDto.builder()
+                .specificDate(specificDate)
+                .startTime(startTime)
+                .endTime(endTime)
+                .build();
 
-        assertEquals(LocalTime.of(14, 0), schedule.getStartTime());
-        assertEquals(LocalTime.of(15, 30), schedule.getEndTime());
+        Schedule schedule = factory.createOneTimeSchedule(dto, caregiverId);
+
+        assertNotNull(schedule);
+        assertEquals(caregiverId, schedule.getCaregiverId());
+        assertEquals(specificDate.getDayOfWeek(), schedule.getDay());
+        assertEquals(startTime, schedule.getStartTime());
+        assertEquals(endTime, schedule.getEndTime());
+        assertTrue(schedule.isOneTime());
+        assertEquals(specificDate, schedule.getSpecificDate());
     }
 }
