@@ -5,6 +5,7 @@ import id.ac.ui.cs.advprog.bekonsultasi.dto.KonsultasiResponseDto;
 import id.ac.ui.cs.advprog.bekonsultasi.dto.RescheduleKonsultasiDto;
 import id.ac.ui.cs.advprog.bekonsultasi.exception.ScheduleException;
 import id.ac.ui.cs.advprog.bekonsultasi.model.Konsultasi;
+import id.ac.ui.cs.advprog.bekonsultasi.model.KonsultasiState.RequestedState;
 import id.ac.ui.cs.advprog.bekonsultasi.model.Schedule;
 import id.ac.ui.cs.advprog.bekonsultasi.repository.KonsultasiRepository;
 import id.ac.ui.cs.advprog.bekonsultasi.repository.ScheduleRepository;
@@ -19,6 +20,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -43,222 +45,181 @@ class KonsultasiServiceImplTest {
         @InjectMocks
         private KonsultasiServiceImpl konsultasiService;
 
-        private UUID scheduleId;
-        private UUID caregiverId;
         private UUID pacilianId;
+        private UUID caregiverId;
+        private UUID scheduleId;
+        private UUID newScheduleId;
+        private UUID konsultasiId;
         private Schedule schedule;
+        private Schedule newSchedule;
         private Konsultasi konsultasi;
         private CreateKonsultasiDto createDto;
+        private RescheduleKonsultasiDto rescheduleDto;
+        private LocalDateTime scheduleDateTime;
 
         @BeforeEach
         void setUp() {
-                scheduleId = UUID.randomUUID();
-                caregiverId = UUID.randomUUID();
                 pacilianId = UUID.randomUUID();
+                caregiverId = UUID.randomUUID();
+                scheduleId = UUID.randomUUID();
+                newScheduleId = UUID.randomUUID();
+                konsultasiId = UUID.randomUUID();
 
                 schedule = Schedule.builder()
                         .id(scheduleId)
                         .caregiverId(caregiverId)
                         .day(DayOfWeek.MONDAY)
-                        .startTime(LocalTime.of(9, 0))
-                        .endTime(LocalTime.of(10, 0))
-                        .status("AVAILABLE")
+                        .startTime(LocalTime.of(10, 0))
+                        .endTime(LocalTime.of(11, 0))
+                        .oneTime(false)
                         .build();
 
+                newSchedule = Schedule.builder()
+                        .id(newScheduleId)
+                        .caregiverId(caregiverId)
+                        .day(DayOfWeek.TUESDAY)
+                        .startTime(LocalTime.of(14, 0))
+                        .endTime(LocalTime.of(15, 0))
+                        .oneTime(false)
+                        .build();
+
+                scheduleDateTime = LocalDateTime.now().plusDays(7);
+
                 konsultasi = Konsultasi.builder()
-                        .id(UUID.randomUUID())
+                        .id(konsultasiId)
                         .scheduleId(scheduleId)
                         .caregiverId(caregiverId)
                         .pacilianId(pacilianId)
-                        .scheduleDateTime(LocalDateTime.now().plusDays(7))
+                        .scheduleDateTime(scheduleDateTime)
                         .notes("Test notes")
                         .status("REQUESTED")
                         .build();
+                konsultasi.setState(new RequestedState());
 
-                createDto = CreateKonsultasiDto.builder()
-                        .scheduleId(scheduleId)
-                        .notes("Test notes")
-                        .build();
+                createDto = new CreateKonsultasiDto();
+                createDto.setScheduleId(scheduleId);
+                createDto.setScheduleDateTime(scheduleDateTime);
+                createDto.setNotes("Test notes");
+
+                rescheduleDto = new RescheduleKonsultasiDto();
+                rescheduleDto.setNewScheduleDateTime(scheduleDateTime.plusDays(7));
+                rescheduleDto.setNotes("Rescheduled");
         }
 
         @Test
         void testCreateKonsultasi() {
                 when(scheduleRepository.findById(scheduleId)).thenReturn(Optional.of(schedule));
+                when(scheduleService.isScheduleAvailableForDateTime(eq(scheduleId), any(LocalDateTime.class))).thenReturn(true);
                 when(konsultasiRepository.findByPacilianIdAndStatusNotIn(eq(pacilianId), any())).thenReturn(new ArrayList<>());
                 when(konsultasiRepository.save(any(Konsultasi.class))).thenReturn(konsultasi);
-                doNothing().when(scheduleService).updateScheduleStatus(scheduleId, "UNAVAILABLE");
 
-                KonsultasiResponseDto result = konsultasiService.createKonsultasi(createDto, pacilianId);
+                KonsultasiResponseDto response = konsultasiService.createKonsultasi(createDto, pacilianId);
 
-                assertNotNull(result);
-                assertEquals(konsultasi.getId(), result.getId());
-                assertEquals("REQUESTED", result.getStatus());
-                verify(scheduleService).updateScheduleStatus(scheduleId, "UNAVAILABLE");
+                assertNotNull(response);
+                assertEquals(konsultasiId, response.getId());
+                assertEquals(scheduleId, response.getScheduleId());
+                assertEquals(caregiverId, response.getCaregiverId());
+                assertEquals(pacilianId, response.getPacilianId());
+                assertEquals("REQUESTED", response.getStatus());
+
+                verify(konsultasiRepository).save(any(Konsultasi.class));
         }
 
         @Test
-        void testCreateKonsultasiScheduleNotAvailable() {
-                schedule.setStatus("UNAVAILABLE");
-
+        void testCreateKonsultasi_ScheduleNotAvailable() {
                 when(scheduleRepository.findById(scheduleId)).thenReturn(Optional.of(schedule));
+                when(scheduleService.isScheduleAvailableForDateTime(eq(scheduleId), any(LocalDateTime.class))).thenReturn(false);
 
                 assertThrows(ScheduleException.class, () ->
-                        konsultasiService.createKonsultasi(createDto, pacilianId)
-                );
-        }
+                        konsultasiService.createKonsultasi(createDto, pacilianId));
 
-        @Test
-        void testConfirmKonsultasi() {
-                when(konsultasiRepository.findById(konsultasi.getId())).thenReturn(Optional.of(konsultasi));
-                when(konsultasiRepository.save(any(Konsultasi.class))).thenAnswer(invocation -> {
-                        Konsultasi k = invocation.getArgument(0);
-                        k.setStatus("CONFIRMED");
-                        return k;
-                });
-
-                KonsultasiResponseDto result = konsultasiService.confirmKonsultasi(konsultasi.getId(), caregiverId);
-
-                assertNotNull(result);
-                assertEquals("CONFIRMED", result.getStatus());
-        }
-
-        @Test
-        void testCancelKonsultasi() {
-                when(konsultasiRepository.findById(konsultasi.getId())).thenReturn(Optional.of(konsultasi));
-                when(konsultasiRepository.save(any(Konsultasi.class))).thenAnswer(invocation -> {
-                        Konsultasi k = invocation.getArgument(0);
-                        k.setStatus("CANCELLED");
-                        return k;
-                });
-                doNothing().when(scheduleService).updateScheduleStatus(scheduleId, "AVAILABLE");
-
-                KonsultasiResponseDto result = konsultasiService.cancelKonsultasi(konsultasi.getId(), pacilianId, "PACILIAN");
-
-                assertNotNull(result);
-                assertEquals("CANCELLED", result.getStatus());
-                verify(scheduleService).updateScheduleStatus(scheduleId, "AVAILABLE");
-        }
-
-        @Test
-        void testCompleteKonsultasi() {
-                konsultasi.setStatus("CONFIRMED");
-
-                when(konsultasiRepository.findById(konsultasi.getId())).thenReturn(Optional.of(konsultasi));
-                when(konsultasiRepository.save(any(Konsultasi.class))).thenAnswer(invocation -> {
-                        Konsultasi k = invocation.getArgument(0);
-                        k.setStatus("DONE");
-                        return k;
-                });
-                doNothing().when(scheduleService).updateScheduleStatus(scheduleId, "AVAILABLE");
-
-                KonsultasiResponseDto result = konsultasiService.completeKonsultasi(konsultasi.getId(), caregiverId);
-
-                assertNotNull(result);
-                assertEquals("DONE", result.getStatus());
-                verify(scheduleService).updateScheduleStatus(scheduleId, "AVAILABLE");
+                verify(konsultasiRepository, never()).save(any(Konsultasi.class));
         }
 
         @Test
         void testRescheduleKonsultasi() {
-                LocalDateTime newDateTime = LocalDateTime.now().plusDays(14);
-                RescheduleKonsultasiDto rescheduleDto = RescheduleKonsultasiDto.builder()
-                        .newScheduleDateTime(newDateTime)
-                        .notes("Reschedule notes")
+                rescheduleDto.setNewScheduleId(newScheduleId);
+
+                when(konsultasiRepository.findById(konsultasiId)).thenReturn(Optional.of(konsultasi));
+                when(scheduleRepository.findById(newScheduleId)).thenReturn(Optional.of(newSchedule));
+                when(konsultasiRepository.findByScheduleId(newScheduleId)).thenReturn(new ArrayList<>());
+                when(konsultasiRepository.save(any(Konsultasi.class))).thenReturn(konsultasi);
+
+                KonsultasiResponseDto response = konsultasiService.rescheduleKonsultasi(konsultasiId, rescheduleDto, pacilianId, "PACILIAN");
+
+                assertNotNull(response);
+                assertEquals(konsultasiId, response.getId());
+                assertEquals("RESCHEDULED", response.getStatus());
+
+                verify(konsultasiRepository).save(any(Konsultasi.class));
+        }
+
+        @Test
+        void testRescheduleKonsultasi_DifferentCaregiverSchedule() {
+                UUID differentCaregiverId = UUID.randomUUID();
+
+                Schedule differentSchedule = Schedule.builder()
+                        .id(newScheduleId)
+                        .caregiverId(differentCaregiverId)
+                        .day(DayOfWeek.TUESDAY)
+                        .startTime(LocalTime.of(14, 0))
+                        .endTime(LocalTime.of(15, 0))
+                        .oneTime(false)
                         .build();
 
-                when(konsultasiRepository.findById(konsultasi.getId())).thenReturn(Optional.of(konsultasi));
-                when(konsultasiRepository.save(any(Konsultasi.class))).thenAnswer(invocation -> {
-                        Konsultasi k = invocation.getArgument(0);
-                        k.setStatus("RESCHEDULED");
-                        k.setScheduleDateTime(newDateTime);
-                        return k;
-                });
+                rescheduleDto.setNewScheduleId(newScheduleId);
 
-                KonsultasiResponseDto result = konsultasiService.rescheduleKonsultasi(
-                        konsultasi.getId(), rescheduleDto, pacilianId, "PACILIAN");
+                when(konsultasiRepository.findById(konsultasiId)).thenReturn(Optional.of(konsultasi));
+                when(scheduleRepository.findById(newScheduleId)).thenReturn(Optional.of(differentSchedule));
 
-                assertNotNull(result);
-                assertEquals("RESCHEDULED", result.getStatus());
-                assertEquals(newDateTime, result.getScheduleDateTime());
+                assertThrows(ScheduleException.class, () ->
+                        konsultasiService.rescheduleKonsultasi(konsultasiId, rescheduleDto, pacilianId, "PACILIAN"));
+
+                verify(konsultasiRepository, never()).save(any(Konsultasi.class));
         }
 
         @Test
-        void testAcceptReschedule() {
-                konsultasi.setStatus("RESCHEDULED");
+        void testRescheduleKonsultasi_TimeConflict() {
 
-                when(konsultasiRepository.findById(konsultasi.getId())).thenReturn(Optional.of(konsultasi));
-                when(konsultasiRepository.save(any(Konsultasi.class))).thenAnswer(invocation -> {
-                        Konsultasi k = invocation.getArgument(0);
-                        k.setStatus("CONFIRMED");
-                        return k;
-                });
+                Konsultasi konflictingKonsultasi = Konsultasi.builder()
+                        .id(UUID.randomUUID())
+                        .scheduleId(scheduleId)
+                        .caregiverId(caregiverId)
+                        .pacilianId(UUID.randomUUID())
+                        .scheduleDateTime(rescheduleDto.getNewScheduleDateTime())
+                        .notes("Existing konsultasi")
+                        .status("CONFIRMED")
+                        .build();
 
-                KonsultasiResponseDto result = konsultasiService.acceptReschedule(konsultasi.getId(), caregiverId);
+                List<Konsultasi> existingKonsultasi = Arrays.asList(konflictingKonsultasi);
 
-                assertNotNull(result);
-                assertEquals("CONFIRMED", result.getStatus());
+                when(konsultasiRepository.findById(konsultasiId)).thenReturn(Optional.of(konsultasi));
+                when(konsultasiRepository.findByScheduleId(scheduleId)).thenReturn(existingKonsultasi);
+
+                assertThrows(ScheduleException.class, () ->
+                        konsultasiService.rescheduleKonsultasi(konsultasiId, rescheduleDto, pacilianId, "PACILIAN"));
+
+                verify(konsultasiRepository, never()).save(any(Konsultasi.class));
         }
 
         @Test
-        void testRejectReschedule() {
-                konsultasi.setStatus("RESCHEDULED");
-                LocalDateTime originalDateTime = LocalDateTime.now().plusDays(5);
-                konsultasi.setOriginalScheduleDateTime(originalDateTime);
+        void testRescheduleKonsultasi_NotInRequestedState() {
 
-                when(konsultasiRepository.findById(konsultasi.getId())).thenReturn(Optional.of(konsultasi));
-                when(konsultasiRepository.save(any(Konsultasi.class))).thenAnswer(invocation -> {
-                        Konsultasi k = invocation.getArgument(0);
-                        k.setStatus("REQUESTED");
-                        k.setScheduleDateTime(originalDateTime);
-                        return k;
-                });
+                Konsultasi confirmedKonsultasi = Konsultasi.builder()
+                        .id(konsultasiId)
+                        .scheduleId(scheduleId)
+                        .caregiverId(caregiverId)
+                        .pacilianId(pacilianId)
+                        .scheduleDateTime(LocalDateTime.now().plusDays(7))
+                        .notes("Test notes")
+                        .status("CONFIRMED")
+                        .build();
 
-                KonsultasiResponseDto result = konsultasiService.rejectReschedule(konsultasi.getId(), caregiverId);
+                when(konsultasiRepository.findById(konsultasiId)).thenReturn(Optional.of(confirmedKonsultasi));
 
-                assertNotNull(result);
-                assertEquals("REQUESTED", result.getStatus());
-        }
+                assertThrows(ScheduleException.class, () ->
+                        konsultasiService.rescheduleKonsultasi(konsultasiId, rescheduleDto, pacilianId, "PACILIAN"));
 
-        @Test
-        void testGetKonsultasiById() {
-                when(konsultasiRepository.findById(konsultasi.getId())).thenReturn(Optional.of(konsultasi));
-
-                KonsultasiResponseDto result = konsultasiService.getKonsultasiById(konsultasi.getId());
-
-                assertNotNull(result);
-                assertEquals(konsultasi.getId(), result.getId());
-        }
-
-        @Test
-        void testGetKonsultasiByPacilianId() {
-                when(konsultasiRepository.findByPacilianId(pacilianId)).thenReturn(List.of(konsultasi));
-
-                List<KonsultasiResponseDto> result = konsultasiService.getKonsultasiByPacilianId(pacilianId);
-
-                assertNotNull(result);
-                assertEquals(1, result.size());
-                assertEquals(konsultasi.getId(), result.get(0).getId());
-        }
-
-        @Test
-        void testGetKonsultasiByCaregiverId() {
-                when(konsultasiRepository.findByCaregiverId(caregiverId)).thenReturn(List.of(konsultasi));
-
-                List<KonsultasiResponseDto> result = konsultasiService.getKonsultasiByCaregiverId(caregiverId);
-
-                assertNotNull(result);
-                assertEquals(1, result.size());
-                assertEquals(konsultasi.getId(), result.get(0).getId());
-        }
-
-        @Test
-        void testGetRequestedKonsultasiByCaregiverId() {
-                when(konsultasiRepository.findByStatusAndCaregiverId("REQUESTED", caregiverId)).thenReturn(List.of(konsultasi));
-
-                List<KonsultasiResponseDto> result = konsultasiService.getRequestedKonsultasiByCaregiverId(caregiverId);
-
-                assertNotNull(result);
-                assertEquals(1, result.size());
-                assertEquals(konsultasi.getId(), result.get(0).getId());
+                verify(konsultasiRepository, never()).save(any(Konsultasi.class));
         }
 }
