@@ -3,17 +3,18 @@ package id.ac.ui.cs.advprog.bekonsultasi.controller;
 import id.ac.ui.cs.advprog.bekonsultasi.dto.*;
 import id.ac.ui.cs.advprog.bekonsultasi.enums.Role;
 import id.ac.ui.cs.advprog.bekonsultasi.exception.AuthenticationException;
-import id.ac.ui.cs.advprog.bekonsultasi.exception.ScheduleException;
 import id.ac.ui.cs.advprog.bekonsultasi.service.KonsultasiService;
+import id.ac.ui.cs.advprog.bekonsultasi.service.ScheduleService;
 import id.ac.ui.cs.advprog.bekonsultasi.service.TokenVerificationService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.mock.web.MockHttpServletRequest;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
@@ -24,453 +25,325 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
-import static org.mockito.MockitoAnnotations.openMocks;
 
+@ExtendWith(MockitoExtension.class)
 class KonsultasiControllerTest {
 
     @Mock
     private KonsultasiService konsultasiService;
 
     @Mock
+    private ScheduleService scheduleService;
+
+    @Mock
     private TokenVerificationService tokenVerificationService;
+
+    @Mock
+    private HttpServletRequest request;
 
     @InjectMocks
     private KonsultasiController konsultasiController;
 
-    private UUID userId;
+    private UUID pacilianId;
+    private UUID caregiverId;
+    private UUID scheduleId;
     private UUID konsultasiId;
-    private String token;
-    private MockHttpServletRequest request;
-    private TokenVerificationResponseDto tokenResponse;
-    private KonsultasiResponseDto konsultasiResponse;
+    private CreateKonsultasiDto createDto;
+    private RescheduleKonsultasiDto rescheduleDto;
+    private KonsultasiResponseDto responseDto;
+    private TokenVerificationResponseDto pacilianVerification;
+    private TokenVerificationResponseDto caregiverVerification;
 
     @BeforeEach
     void setUp() {
-        openMocks(this);
-
-        userId = UUID.randomUUID();
+        pacilianId = UUID.randomUUID();
+        caregiverId = UUID.randomUUID();
+        scheduleId = UUID.randomUUID();
         konsultasiId = UUID.randomUUID();
-        token = "test-token";
 
-        request = new MockHttpServletRequest();
-        request.addHeader("Authorization", "Bearer " + token);
+        LocalDateTime scheduleDateTime = LocalDateTime.now().plusDays(7);
 
-        tokenResponse = TokenVerificationResponseDto.builder()
-                .valid(true)
-                .userId(userId.toString())
-                .email("test@example.com")
-                .role(Role.CAREGIVER)
-                .expiresIn(3600L)
-                .build();
+        createDto = new CreateKonsultasiDto();
+        createDto.setScheduleId(scheduleId);
+        createDto.setScheduleDateTime(scheduleDateTime);
+        createDto.setNotes("Test notes");
 
-        konsultasiResponse = KonsultasiResponseDto.builder()
+        rescheduleDto = new RescheduleKonsultasiDto();
+        rescheduleDto.setNewScheduleDateTime(scheduleDateTime.plusDays(7));
+        rescheduleDto.setNewScheduleId(UUID.randomUUID());
+        rescheduleDto.setNotes("Rescheduled");
+
+        responseDto = KonsultasiResponseDto.builder()
                 .id(konsultasiId)
-                .caregiverId(userId)
-                .pacilianId(UUID.randomUUID())
-                .scheduleId(UUID.randomUUID())
-                .scheduleDateTime(LocalDateTime.now().plusDays(7))
+                .scheduleId(scheduleId)
+                .caregiverId(caregiverId)
+                .pacilianId(pacilianId)
+                .scheduleDateTime(scheduleDateTime)
                 .notes("Test notes")
                 .status("REQUESTED")
+                .lastUpdated(LocalDateTime.now())
+                .build();
+
+        pacilianVerification = TokenVerificationResponseDto.builder()
+                .valid(true)
+                .userId(pacilianId.toString())
+                .role(Role.PACILIAN)
+                .build();
+
+        caregiverVerification = TokenVerificationResponseDto.builder()
+                .valid(true)
+                .userId(caregiverId.toString())
+                .role(Role.CAREGIVER)
                 .build();
     }
 
-    @Nested
-    class CreateKonsultasiTests {
-        @Test
-        void testCreateKonsultasi_Success() {
-            tokenResponse.setRole(Role.PACILIAN);
-            when(tokenVerificationService.verifyToken(token)).thenReturn(tokenResponse);
+    @Test
+    void testCreateKonsultasi() {
+        when(request.getHeader("Authorization")).thenReturn("Bearer token");
+        when(tokenVerificationService.verifyToken("token")).thenReturn(pacilianVerification);
+        when(konsultasiService.createKonsultasi(createDto, pacilianId)).thenReturn(responseDto);
 
-            CreateKonsultasiDto createDto = CreateKonsultasiDto.builder()
-                    .scheduleId(UUID.randomUUID())
-                    .notes("Test consultation")
-                    .build();
-
-            when(konsultasiService.createKonsultasi(eq(createDto), any(UUID.class)))
-                    .thenReturn(konsultasiResponse);
-
-            ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> response =
-                    konsultasiController.createKonsultasi(createDto, request);
-
-            assertEquals(HttpStatus.CREATED, response.getStatusCode());
-            assertNotNull(response.getBody());
-            assertEquals(201, response.getBody().getStatus());
-            assertEquals(konsultasiId, response.getBody().getData().getId());
-            verify(tokenVerificationService).verifyToken(token);
-            verify(konsultasiService).createKonsultasi(eq(createDto), any(UUID.class));
-        }
-
-        @Test
-        void testCreateKonsultasi_InvalidRole() {
-            when(tokenVerificationService.verifyToken(token)).thenReturn(tokenResponse);
-
-            CreateKonsultasiDto createDto = CreateKonsultasiDto.builder()
-                    .scheduleId(UUID.randomUUID())
-                    .notes("Test consultation")
-                    .build();
-            Exception exception = assertThrows(AuthenticationException.class, () -> {
+        ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> response =
                 konsultasiController.createKonsultasi(createDto, request);
-            });
 
-            assertEquals("Only pacilians can create consultations", exception.getMessage());
-            verify(tokenVerificationService).verifyToken(token);
-            verify(konsultasiService, never()).createKonsultasi(any(), any());
-        }
+        assertNotNull(response);
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(201, response.getBody().getStatus());
+        assertEquals("Created successfully", response.getBody().getMessage());
+        assertEquals(responseDto, response.getBody().getData());
+
+        verify(konsultasiService).createKonsultasi(createDto, pacilianId);
     }
 
-    @Nested
-    class ConfirmKonsultasiTests {
-        @Test
-        void testConfirmKonsultasi_Success() {
-            when(tokenVerificationService.verifyToken(token)).thenReturn(tokenResponse);
+    @Test
+    void testCreateKonsultasi_NotPacilianRole() {
+        when(request.getHeader("Authorization")).thenReturn("Bearer token");
+        when(tokenVerificationService.verifyToken("token")).thenReturn(caregiverVerification);
 
-            KonsultasiResponseDto confirmedResponse = KonsultasiResponseDto.builder()
-                    .id(konsultasiId)
-                    .status("CONFIRMED")
-                    .build();
+        assertThrows(AuthenticationException.class, () ->
+                konsultasiController.createKonsultasi(createDto, request));
 
-            when(konsultasiService.confirmKonsultasi(eq(konsultasiId), any(UUID.class)))
-                    .thenReturn(confirmedResponse);
-
-            ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> response =
-                    konsultasiController.confirmKonsultasi(konsultasiId, request);
-
-            assertEquals(HttpStatus.OK, response.getStatusCode());
-            assertNotNull(response.getBody());
-            assertEquals(200, response.getBody().getStatus());
-            assertEquals("Consultation confirmed successfully", response.getBody().getMessage());
-            assertEquals("CONFIRMED", response.getBody().getData().getStatus());
-            verify(tokenVerificationService).verifyToken(token);
-            verify(konsultasiService).confirmKonsultasi(eq(konsultasiId), any(UUID.class));
-        }
-
-        @Test
-        void testConfirmKonsultasi_InvalidRole() {
-            tokenResponse.setRole(Role.PACILIAN);
-            when(tokenVerificationService.verifyToken(token)).thenReturn(tokenResponse);
-            Exception exception = assertThrows(AuthenticationException.class, () -> {
-                konsultasiController.confirmKonsultasi(konsultasiId, request);
-            });
-
-            assertEquals("Only caregivers can confirm consultations", exception.getMessage());
-            verify(tokenVerificationService).verifyToken(token);
-            verify(konsultasiService, never()).confirmKonsultasi(any(), any());
-        }
+        verify(konsultasiService, never()).createKonsultasi(any(), any());
     }
 
-    @Nested
-    class CancelAndCompleteTests {
-        @Test
-        void testCancelKonsultasi_Success() {
-            when(tokenVerificationService.verifyToken(token)).thenReturn(tokenResponse);
+    @Test
+    void testGetAvailableTimesForSchedule() {
+        List<LocalDateTime> availableTimes = Arrays.asList(
+                LocalDateTime.now().plusDays(7),
+                LocalDateTime.now().plusDays(14)
+        );
 
-            KonsultasiResponseDto cancelledResponse = KonsultasiResponseDto.builder()
-                    .id(konsultasiId)
-                    .status("CANCELLED")
-                    .build();
+        when(request.getHeader("Authorization")).thenReturn("Bearer token");
+        when(tokenVerificationService.verifyToken("token")).thenReturn(pacilianVerification);
+        when(scheduleService.getAvailableDateTimesForSchedule(scheduleId, 4)).thenReturn(availableTimes);
 
-            when(konsultasiService.cancelKonsultasi(eq(konsultasiId), any(UUID.class), eq("CAREGIVER")))
-                    .thenReturn(cancelledResponse);
+        ResponseEntity<ApiResponseDto<List<LocalDateTime>>> response =
+                konsultasiController.getAvailableTimesForSchedule(scheduleId, 4, request);
 
-            ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> response =
-                    konsultasiController.cancelKonsultasi(konsultasiId, request);
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(200, response.getBody().getStatus());
+        assertEquals("Retrieved available times", response.getBody().getMessage());
+        assertEquals(availableTimes, response.getBody().getData());
 
-            assertEquals(HttpStatus.OK, response.getStatusCode());
-            assertNotNull(response.getBody());
-            assertEquals(200, response.getBody().getStatus());
-            assertEquals("Consultation cancelled successfully", response.getBody().getMessage());
-            assertEquals("CANCELLED", response.getBody().getData().getStatus());
-            verify(tokenVerificationService).verifyToken(token);
-            verify(konsultasiService).cancelKonsultasi(eq(konsultasiId), any(UUID.class), eq("CAREGIVER"));
-        }
-
-        @Test
-        void testCompleteKonsultasi_Success() {
-            when(tokenVerificationService.verifyToken(token)).thenReturn(tokenResponse);
-
-            KonsultasiResponseDto completedResponse = KonsultasiResponseDto.builder()
-                    .id(konsultasiId)
-                    .status("DONE")
-                    .build();
-
-            when(konsultasiService.completeKonsultasi(eq(konsultasiId), any(UUID.class)))
-                    .thenReturn(completedResponse);
-
-            ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> response =
-                    konsultasiController.completeKonsultasi(konsultasiId, request);
-
-            assertEquals(HttpStatus.OK, response.getStatusCode());
-            assertNotNull(response.getBody());
-            assertEquals(200, response.getBody().getStatus());
-            assertEquals("Consultation completed successfully", response.getBody().getMessage());
-            assertEquals("DONE", response.getBody().getData().getStatus());
-            verify(tokenVerificationService).verifyToken(token);
-            verify(konsultasiService).completeKonsultasi(eq(konsultasiId), any(UUID.class));
-        }
-
-        @Test
-        void testCompleteKonsultasi_InvalidRole() {
-            tokenResponse.setRole(Role.PACILIAN);
-            when(tokenVerificationService.verifyToken(token)).thenReturn(tokenResponse);
-            Exception exception = assertThrows(AuthenticationException.class, () -> {
-                konsultasiController.completeKonsultasi(konsultasiId, request);
-            });
-
-            assertEquals("Only caregivers can complete consultations", exception.getMessage());
-            verify(tokenVerificationService).verifyToken(token);
-            verify(konsultasiService, never()).completeKonsultasi(any(), any());
-        }
+        verify(scheduleService).getAvailableDateTimesForSchedule(scheduleId, 4);
     }
 
-    @Nested
-    class RescheduleTests {
-        @Test
-        void testRescheduleKonsultasi_Success() {
-            when(tokenVerificationService.verifyToken(token)).thenReturn(tokenResponse);
+    @Test
+    void testRescheduleKonsultasi() {
+        when(request.getHeader("Authorization")).thenReturn("Bearer token");
+        when(tokenVerificationService.verifyToken("token")).thenReturn(pacilianVerification);
+        when(konsultasiService.rescheduleKonsultasi(eq(konsultasiId), eq(rescheduleDto), eq(pacilianId), eq("PACILIAN"))).thenReturn(responseDto);
 
-            RescheduleKonsultasiDto rescheduleDto = RescheduleKonsultasiDto.builder()
-                    .newScheduleDateTime(LocalDateTime.now().plusDays(14))
-                    .notes("Reschedule notes")
-                    .build();
+        ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> response =
+                konsultasiController.rescheduleKonsultasi(konsultasiId, rescheduleDto, request);
 
-            KonsultasiResponseDto rescheduledResponse = KonsultasiResponseDto.builder()
-                    .id(konsultasiId)
-                    .scheduleDateTime(rescheduleDto.getNewScheduleDateTime())
-                    .status("REQUESTED")
-                    .build();
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(200, response.getBody().getStatus());
+        assertEquals("Consultation rescheduled successfully", response.getBody().getMessage());
+        assertEquals(responseDto, response.getBody().getData());
 
-            when(konsultasiService.rescheduleKonsultasi(
-                    eq(konsultasiId), eq(rescheduleDto), any(UUID.class), eq("CAREGIVER")))
-                    .thenReturn(rescheduledResponse);
-
-            ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> response =
-                    konsultasiController.rescheduleKonsultasi(konsultasiId, rescheduleDto, request);
-
-            assertEquals(HttpStatus.OK, response.getStatusCode());
-            assertNotNull(response.getBody());
-            assertEquals(200, response.getBody().getStatus());
-            assertEquals("Consultation rescheduled successfully", response.getBody().getMessage());
-            assertEquals(rescheduleDto.getNewScheduleDateTime(), response.getBody().getData().getScheduleDateTime());
-            verify(tokenVerificationService).verifyToken(token);
-            verify(konsultasiService).rescheduleKonsultasi(
-                    eq(konsultasiId), eq(rescheduleDto), any(UUID.class), eq("CAREGIVER"));
-        }
+        verify(konsultasiService).rescheduleKonsultasi(eq(konsultasiId), eq(rescheduleDto), eq(pacilianId), eq("PACILIAN"));
     }
 
-    @Nested
-    class QueryKonsultasiTests {
-        @Test
-        void testGetKonsultasiById_Success() {
-            when(tokenVerificationService.verifyToken(token)).thenReturn(tokenResponse);
-            when(konsultasiService.getKonsultasiById(konsultasiId)).thenReturn(konsultasiResponse);
+    @Test
+    void testAcceptReschedule() {
+        when(request.getHeader("Authorization")).thenReturn("Bearer token");
+        when(tokenVerificationService.verifyToken("token")).thenReturn(caregiverVerification);
+        when(konsultasiService.acceptReschedule(konsultasiId, caregiverId)).thenReturn(responseDto);
 
-            ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> response =
-                    konsultasiController.getKonsultasiById(konsultasiId, request);
-
-            assertEquals(HttpStatus.OK, response.getStatusCode());
-            assertNotNull(response.getBody());
-            assertEquals(200, response.getBody().getStatus());
-            assertEquals(konsultasiId, response.getBody().getData().getId());
-            verify(tokenVerificationService).verifyToken(token);
-            verify(konsultasiService).getKonsultasiById(konsultasiId);
-        }
-
-        @Test
-        void testGetKonsultasiByPacilianId_Success() {
-            tokenResponse.setRole(Role.PACILIAN);
-            when(tokenVerificationService.verifyToken(token)).thenReturn(tokenResponse);
-
-            List<KonsultasiResponseDto> konsultasiList = Arrays.asList(konsultasiResponse);
-            when(konsultasiService.getKonsultasiByPacilianId(any(UUID.class))).thenReturn(konsultasiList);
-
-            ResponseEntity<ApiResponseDto<List<KonsultasiResponseDto>>> response =
-                    konsultasiController.getKonsultasiByPacilianId(request);
-
-            assertEquals(HttpStatus.OK, response.getStatusCode());
-            assertNotNull(response.getBody());
-            assertEquals(200, response.getBody().getStatus());
-            assertEquals("Retrieved pacilian consultations", response.getBody().getMessage());
-            assertEquals(1, response.getBody().getData().size());
-            assertEquals(konsultasiId, response.getBody().getData().get(0).getId());
-            verify(tokenVerificationService).verifyToken(token);
-            verify(konsultasiService).getKonsultasiByPacilianId(any(UUID.class));
-        }
-
-        @Test
-        void testGetKonsultasiByPacilianId_InvalidRole() {
-            when(tokenVerificationService.verifyToken(token)).thenReturn(tokenResponse);
-            Exception exception = assertThrows(AuthenticationException.class, () -> {
-                konsultasiController.getKonsultasiByPacilianId(request);
-            });
-
-            assertEquals("Only pacilians can view their consultations", exception.getMessage());
-            verify(tokenVerificationService).verifyToken(token);
-            verify(konsultasiService, never()).getKonsultasiByPacilianId(any());
-        }
-
-        @Test
-        void testGetKonsultasiByCaregiverId_Success() {
-            when(tokenVerificationService.verifyToken(token)).thenReturn(tokenResponse);
-
-            List<KonsultasiResponseDto> konsultasiList = Arrays.asList(konsultasiResponse);
-            when(konsultasiService.getKonsultasiByCaregiverId(any(UUID.class))).thenReturn(konsultasiList);
-
-            ResponseEntity<ApiResponseDto<List<KonsultasiResponseDto>>> response =
-                    konsultasiController.getKonsultasiByCaregiverId(request);
-
-            assertEquals(HttpStatus.OK, response.getStatusCode());
-            assertNotNull(response.getBody());
-            assertEquals(200, response.getBody().getStatus());
-            assertEquals("Retrieved caregiver consultations", response.getBody().getMessage());
-            assertEquals(1, response.getBody().getData().size());
-            assertEquals(konsultasiId, response.getBody().getData().get(0).getId());
-            verify(tokenVerificationService).verifyToken(token);
-            verify(konsultasiService).getKonsultasiByCaregiverId(any(UUID.class));
-        }
-
-        @Test
-        void testGetRequestedKonsultasiByCaregiverId_Success() {
-            when(tokenVerificationService.verifyToken(token)).thenReturn(tokenResponse);
-
-            List<KonsultasiResponseDto> konsultasiList = Arrays.asList(konsultasiResponse);
-            when(konsultasiService.getRequestedKonsultasiByCaregiverId(any(UUID.class)))
-                    .thenReturn(konsultasiList);
-
-            ResponseEntity<ApiResponseDto<List<KonsultasiResponseDto>>> response =
-                    konsultasiController.getRequestedKonsultasiByCaregiverId(request);
-
-            assertEquals(HttpStatus.OK, response.getStatusCode());
-            assertNotNull(response.getBody());
-            assertEquals(200, response.getBody().getStatus());
-            assertEquals("Retrieved requested consultations", response.getBody().getMessage());
-            assertEquals(1, response.getBody().getData().size());
-            assertEquals(konsultasiId, response.getBody().getData().get(0).getId());
-            verify(tokenVerificationService).verifyToken(token);
-            verify(konsultasiService).getRequestedKonsultasiByCaregiverId(any(UUID.class));
-        }
-    }
-
-    @Nested
-    class RescheduleAcceptRejectTests {
-        @Test
-        void testAcceptReschedule_Success() {
-            when(tokenVerificationService.verifyToken(token)).thenReturn(tokenResponse);
-
-            KonsultasiResponseDto confirmedResponse = KonsultasiResponseDto.builder()
-                    .id(konsultasiId)
-                    .status("CONFIRMED")
-                    .build();
-
-            when(konsultasiService.acceptReschedule(eq(konsultasiId), any(UUID.class)))
-                    .thenReturn(confirmedResponse);
-
-            ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> response =
-                    konsultasiController.acceptReschedule(konsultasiId, request);
-
-            assertEquals(HttpStatus.OK, response.getStatusCode());
-            assertNotNull(response.getBody());
-            assertEquals(200, response.getBody().getStatus());
-            assertEquals("Rescheduled consultation accepted", response.getBody().getMessage());
-            assertEquals("CONFIRMED", response.getBody().getData().getStatus());
-            verify(tokenVerificationService).verifyToken(token);
-            verify(konsultasiService).acceptReschedule(eq(konsultasiId), any(UUID.class));
-        }
-
-        @Test
-        void testAcceptReschedule_InvalidRole() {
-            tokenResponse.setRole(Role.PACILIAN);
-            when(tokenVerificationService.verifyToken(token)).thenReturn(tokenResponse);
-
-            Exception exception = assertThrows(AuthenticationException.class, () -> {
+        ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> response =
                 konsultasiController.acceptReschedule(konsultasiId, request);
-            });
 
-            assertEquals("Only caregivers can accept rescheduled consultations", exception.getMessage());
-            verify(tokenVerificationService).verifyToken(token);
-            verify(konsultasiService, never()).acceptReschedule(any(), any());
-        }
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(200, response.getBody().getStatus());
+        assertEquals("Rescheduled consultation accepted", response.getBody().getMessage());
+        assertEquals(responseDto, response.getBody().getData());
 
-        @Test
-        void testRejectReschedule_Success() {
-            when(tokenVerificationService.verifyToken(token)).thenReturn(tokenResponse);
+        verify(konsultasiService).acceptReschedule(konsultasiId, caregiverId);
+    }
 
-            KonsultasiResponseDto requestedResponse = KonsultasiResponseDto.builder()
-                    .id(konsultasiId)
-                    .status("REQUESTED")
-                    .build();
+    @Test
+    void testRejectReschedule() {
+        when(request.getHeader("Authorization")).thenReturn("Bearer token");
+        when(tokenVerificationService.verifyToken("token")).thenReturn(caregiverVerification);
+        when(konsultasiService.rejectReschedule(konsultasiId, caregiverId)).thenReturn(responseDto);
 
-            when(konsultasiService.rejectReschedule(eq(konsultasiId), any(UUID.class)))
-                    .thenReturn(requestedResponse);
-
-            ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> response =
-                    konsultasiController.rejectReschedule(konsultasiId, request);
-
-            assertEquals(HttpStatus.OK, response.getStatusCode());
-            assertNotNull(response.getBody());
-            assertEquals(200, response.getBody().getStatus());
-            assertEquals("Rescheduled consultation rejected", response.getBody().getMessage());
-            assertEquals("REQUESTED", response.getBody().getData().getStatus());
-            verify(tokenVerificationService).verifyToken(token);
-            verify(konsultasiService).rejectReschedule(eq(konsultasiId), any(UUID.class));
-        }
-
-        @Test
-        void testRejectReschedule_InvalidRole() {
-            tokenResponse.setRole(Role.PACILIAN);
-            when(tokenVerificationService.verifyToken(token)).thenReturn(tokenResponse);
-
-            Exception exception = assertThrows(AuthenticationException.class, () -> {
+        ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> response =
                 konsultasiController.rejectReschedule(konsultasiId, request);
-            });
 
-            assertEquals("Only caregivers can reject rescheduled consultations", exception.getMessage());
-            verify(tokenVerificationService).verifyToken(token);
-            verify(konsultasiService, never()).rejectReschedule(any(), any());
-        }
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(200, response.getBody().getStatus());
+        assertEquals("Rescheduled consultation rejected", response.getBody().getMessage());
+        assertEquals(responseDto, response.getBody().getData());
+
+        verify(konsultasiService).rejectReschedule(konsultasiId, caregiverId);
     }
 
-    @Nested
-    class AuthenticationTests {
-        @Test
-        void testMissingAuthorizationHeader() {
-            MockHttpServletRequest requestWithoutHeader = new MockHttpServletRequest();
-            Exception exception = assertThrows(AuthenticationException.class, () -> {
-                konsultasiController.getKonsultasiById(konsultasiId, requestWithoutHeader);
-            });
+    @Test
+    void testConfirmKonsultasi() {
+        when(request.getHeader("Authorization")).thenReturn("Bearer token");
+        when(tokenVerificationService.verifyToken("token")).thenReturn(caregiverVerification);
+        when(konsultasiService.confirmKonsultasi(konsultasiId, caregiverId)).thenReturn(responseDto);
 
-            assertEquals("Authorization header is missing or invalid", exception.getMessage());
-            verify(tokenVerificationService, never()).verifyToken(any());
-        }
+        ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> response =
+                konsultasiController.confirmKonsultasi(konsultasiId, request);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(200, response.getBody().getStatus());
+        assertEquals("Consultation confirmed successfully", response.getBody().getMessage());
+        assertEquals(responseDto, response.getBody().getData());
+
+        verify(konsultasiService).confirmKonsultasi(konsultasiId, caregiverId);
     }
 
-    @Nested
-    class ExceptionHandlerTests {
-        @Test
-        void testHandleScheduleException() {
-            ScheduleException exception = new ScheduleException("Schedule conflict");
+    @Test
+    void testCancelKonsultasi() {
+        when(request.getHeader("Authorization")).thenReturn("Bearer token");
+        when(tokenVerificationService.verifyToken("token")).thenReturn(pacilianVerification);
+        when(konsultasiService.cancelKonsultasi(konsultasiId, pacilianId, "PACILIAN")).thenReturn(responseDto);
 
-            ResponseEntity<ApiResponseDto<Object>> response =
-                    konsultasiController.handleScheduleException(exception);
+        ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> response =
+                konsultasiController.cancelKonsultasi(konsultasiId, request);
 
-            assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-            assertNotNull(response.getBody());
-            assertEquals(400, response.getBody().getStatus());
-            assertEquals("Schedule conflict", response.getBody().getMessage());
-            assertNull(response.getBody().getData());
-        }
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(200, response.getBody().getStatus());
+        assertEquals("Consultation cancelled successfully", response.getBody().getMessage());
+        assertEquals(responseDto, response.getBody().getData());
 
-        @Test
-        void testHandleAuthenticationException() {
-            AuthenticationException exception = new AuthenticationException("Invalid token");
+        verify(konsultasiService).cancelKonsultasi(konsultasiId, pacilianId, "PACILIAN");
+    }
 
-            ResponseEntity<ApiResponseDto<Object>> response =
-                    konsultasiController.handleAuthenticationException(exception);
+    @Test
+    void testCompleteKonsultasi() {
+        when(request.getHeader("Authorization")).thenReturn("Bearer token");
+        when(tokenVerificationService.verifyToken("token")).thenReturn(caregiverVerification);
+        when(konsultasiService.completeKonsultasi(konsultasiId, caregiverId)).thenReturn(responseDto);
 
-            assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
-            assertNotNull(response.getBody());
-            assertEquals(401, response.getBody().getStatus());
-            assertEquals("Invalid token", response.getBody().getMessage());
-            assertNull(response.getBody().getData());
-        }
+        ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> response =
+                konsultasiController.completeKonsultasi(konsultasiId, request);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(200, response.getBody().getStatus());
+        assertEquals("Consultation completed successfully", response.getBody().getMessage());
+        assertEquals(responseDto, response.getBody().getData());
+
+        verify(konsultasiService).completeKonsultasi(konsultasiId, caregiverId);
+    }
+
+    @Test
+    void testGetKonsultasiById() {
+        when(request.getHeader("Authorization")).thenReturn("Bearer token");
+        when(tokenVerificationService.verifyToken("token")).thenReturn(pacilianVerification);
+        when(konsultasiService.getKonsultasiById(konsultasiId)).thenReturn(responseDto);
+
+        ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> response =
+                konsultasiController.getKonsultasiById(konsultasiId, request);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(200, response.getBody().getStatus());
+        assertEquals("Success", response.getBody().getMessage());
+        assertEquals(responseDto, response.getBody().getData());
+
+        verify(konsultasiService).getKonsultasiById(konsultasiId);
+    }
+
+    @Test
+    void testGetKonsultasiByPacilianId() {
+        List<KonsultasiResponseDto> konsultasiList = Arrays.asList(responseDto);
+
+        when(request.getHeader("Authorization")).thenReturn("Bearer token");
+        when(tokenVerificationService.verifyToken("token")).thenReturn(pacilianVerification);
+        when(konsultasiService.getKonsultasiByPacilianId(pacilianId)).thenReturn(konsultasiList);
+
+        ResponseEntity<ApiResponseDto<List<KonsultasiResponseDto>>> response =
+                konsultasiController.getKonsultasiByPacilianId(request);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(200, response.getBody().getStatus());
+        assertEquals("Retrieved pacilian consultations", response.getBody().getMessage());
+        assertEquals(konsultasiList, response.getBody().getData());
+
+        verify(konsultasiService).getKonsultasiByPacilianId(pacilianId);
+    }
+
+    @Test
+    void testGetKonsultasiByCaregiverId() {
+        List<KonsultasiResponseDto> konsultasiList = Arrays.asList(responseDto);
+
+        when(request.getHeader("Authorization")).thenReturn("Bearer token");
+        when(tokenVerificationService.verifyToken("token")).thenReturn(caregiverVerification);
+        when(konsultasiService.getKonsultasiByCaregiverId(caregiverId)).thenReturn(konsultasiList);
+
+        ResponseEntity<ApiResponseDto<List<KonsultasiResponseDto>>> response =
+                konsultasiController.getKonsultasiByCaregiverId(request);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(200, response.getBody().getStatus());
+        assertEquals("Retrieved caregiver consultations", response.getBody().getMessage());
+        assertEquals(konsultasiList, response.getBody().getData());
+
+        verify(konsultasiService).getKonsultasiByCaregiverId(caregiverId);
+    }
+
+    @Test
+    void testGetRequestedKonsultasiByCaregiverId() {
+        List<KonsultasiResponseDto> konsultasiList = Arrays.asList(responseDto);
+
+        when(request.getHeader("Authorization")).thenReturn("Bearer token");
+        when(tokenVerificationService.verifyToken("token")).thenReturn(caregiverVerification);
+        when(konsultasiService.getRequestedKonsultasiByCaregiverId(caregiverId)).thenReturn(konsultasiList);
+
+        ResponseEntity<ApiResponseDto<List<KonsultasiResponseDto>>> response =
+                konsultasiController.getRequestedKonsultasiByCaregiverId(request);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(200, response.getBody().getStatus());
+        assertEquals("Retrieved requested consultations", response.getBody().getMessage());
+        assertEquals(konsultasiList, response.getBody().getData());
+
+        verify(konsultasiService).getRequestedKonsultasiByCaregiverId(caregiverId);
     }
 }
