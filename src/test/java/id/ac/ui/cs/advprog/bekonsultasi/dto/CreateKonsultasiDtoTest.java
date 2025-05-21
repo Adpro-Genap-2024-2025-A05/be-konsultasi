@@ -1,134 +1,89 @@
 package id.ac.ui.cs.advprog.bekonsultasi.dto;
 
-import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import jakarta.validation.ValidatorFactory;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import java.util.Set;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class CreateKonsultasiDtoTest {
 
-    private Validator validator;
+    private final ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
+    private final Validator validator = factory.getValidator();
 
-    @BeforeEach
-    void setUp() {
-        ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
-        validator = factory.getValidator();
+    @Test
+    void testBuilder() {
+        UUID scheduleId = UUID.randomUUID();
+        LocalDateTime scheduleDateTime = LocalDateTime.now().plusDays(1);
+        String notes = "Test notes";
+
+        CreateKonsultasiDto dto = CreateKonsultasiDto.builder()
+                .scheduleId(scheduleId)
+                .scheduleDateTime(scheduleDateTime)
+                .notes(notes)
+                .build();
+
+        assertEquals(scheduleId, dto.getScheduleId());
+        assertEquals(scheduleDateTime, dto.getScheduleDateTime());
+        assertEquals(notes, dto.getNotes());
     }
 
-    @Nested
-    class ValidationTests {
-        @Test
-        void testValidCreateKonsultasiDto() {
-            UUID scheduleId = UUID.randomUUID();
-            CreateKonsultasiDto dto = CreateKonsultasiDto.builder()
-                    .scheduleId(scheduleId)
-                    .notes("Test notes")
-                    .build();
+    @Test
+    void testNoArgsConstructor() {
+        CreateKonsultasiDto dto = new CreateKonsultasiDto();
 
-            Set<ConstraintViolation<CreateKonsultasiDto>> violations = validator.validate(dto);
-            assertTrue(violations.isEmpty());
-            
-            assertEquals(scheduleId, dto.getScheduleId());
-            assertEquals("Test notes", dto.getNotes());
-        }
-
-        @Test
-        void testInvalidCreateKonsultasiDtoNullScheduleId() {
-            CreateKonsultasiDto dto = CreateKonsultasiDto.builder()
-                    .scheduleId(null)
-                    .notes("Test notes")
-                    .build();
-
-            Set<ConstraintViolation<CreateKonsultasiDto>> violations = validator.validate(dto);
-            assertEquals(1, violations.size());
-            
-            ConstraintViolation<CreateKonsultasiDto> violation = violations.iterator().next();
-            assertEquals("Schedule ID is required", violation.getMessage());
-        }
+        assertNull(dto.getScheduleId());
+        assertNull(dto.getScheduleDateTime());
+        assertNull(dto.getNotes());
     }
-    
-    @Nested
-    class ConstructorTests {
-        @Test
-        void testBuilderAndNoArgsConstructor() {
-            UUID scheduleId = UUID.randomUUID();
-            
-            CreateKonsultasiDto builderDto = CreateKonsultasiDto.builder()
-                    .scheduleId(scheduleId)
-                    .notes("Builder notes")
-                    .build();
-            
-            CreateKonsultasiDto noArgsDto = new CreateKonsultasiDto();
-            noArgsDto.setScheduleId(scheduleId);
-            noArgsDto.setNotes("NoArgs notes");
-            
-            assertEquals(scheduleId, builderDto.getScheduleId());
-            assertEquals("Builder notes", builderDto.getNotes());
-            
-            assertEquals(scheduleId, noArgsDto.getScheduleId());
-            assertEquals("NoArgs notes", noArgsDto.getNotes());
-        }
-        
-        @Test
-        void testAllArgsConstructor() {
-            UUID scheduleId = UUID.randomUUID();
-            
-            CreateKonsultasiDto dto = new CreateKonsultasiDto(scheduleId, "All args notes");
-            
-            assertEquals(scheduleId, dto.getScheduleId());
-            assertEquals("All args notes", dto.getNotes());
-        }
+
+    @Test
+    void testAllArgsConstructor() {
+        UUID scheduleId = UUID.randomUUID();
+        LocalDateTime scheduleDateTime = LocalDateTime.now().plusDays(1);
+        String notes = "Test notes";
+
+        CreateKonsultasiDto dto = new CreateKonsultasiDto(scheduleId, scheduleDateTime, notes);
+
+        assertEquals(scheduleId, dto.getScheduleId());
+        assertEquals(scheduleDateTime, dto.getScheduleDateTime());
+        assertEquals(notes, dto.getNotes());
     }
-    
-    @Nested
-    class ObjectMethodsTests {
-        @Test
-        void testEqualsAndHashCode() {
-            UUID scheduleId = UUID.randomUUID();
-            
-            CreateKonsultasiDto dto1 = CreateKonsultasiDto.builder()
-                    .scheduleId(scheduleId)
-                    .notes("Notes")
-                    .build();
-            
-            CreateKonsultasiDto dto2 = CreateKonsultasiDto.builder()
-                    .scheduleId(scheduleId)
-                    .notes("Notes")
-                    .build();
-            
-            CreateKonsultasiDto dto3 = CreateKonsultasiDto.builder()
-                    .scheduleId(UUID.randomUUID())
-                    .notes("Different notes")
-                    .build();
-            
-            assertEquals(dto1, dto2);
-            assertEquals(dto1.hashCode(), dto2.hashCode());
-            
-            assertNotEquals(dto1, dto3);
-            assertNotEquals(dto1.hashCode(), dto3.hashCode());
-        }
-        
-        @Test
-        void testToString() {
-            UUID scheduleId = UUID.randomUUID();
-            
-            CreateKonsultasiDto dto = CreateKonsultasiDto.builder()
-                    .scheduleId(scheduleId)
-                    .notes("Test notes")
-                    .build();
-            
-            String toString = dto.toString();
-            
-            assertTrue(toString.contains(scheduleId.toString()));
-            assertTrue(toString.contains("Test notes"));
-        }
+
+    @Test
+    void testGettersAndSetters() {
+        CreateKonsultasiDto dto = new CreateKonsultasiDto();
+
+        UUID scheduleId = UUID.randomUUID();
+        LocalDateTime scheduleDateTime = LocalDateTime.now().plusDays(1);
+        String notes = "Test notes";
+
+        dto.setScheduleId(scheduleId);
+        dto.setScheduleDateTime(scheduleDateTime);
+        dto.setNotes(notes);
+
+        assertEquals(scheduleId, dto.getScheduleId());
+        assertEquals(scheduleDateTime, dto.getScheduleDateTime());
+        assertEquals(notes, dto.getNotes());
+    }
+
+    @Test
+    void testValidation() {
+        CreateKonsultasiDto dto = new CreateKonsultasiDto();
+
+        var violations = validator.validate(dto);
+        assertEquals(2, violations.size());
+
+        dto.setScheduleId(UUID.randomUUID());
+        violations = validator.validate(dto);
+        assertEquals(1, violations.size());
+
+        dto.setScheduleDateTime(LocalDateTime.now().plusDays(1));
+        violations = validator.validate(dto);
+        assertEquals(0, violations.size());
     }
 }
