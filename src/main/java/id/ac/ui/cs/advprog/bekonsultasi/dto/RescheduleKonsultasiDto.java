@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Data
 @Builder
@@ -15,6 +16,8 @@ import java.time.LocalDateTime;
 public class RescheduleKonsultasiDto {
     @NotNull(message = "New schedule date and time is required")
     private LocalDateTime newScheduleDateTime;
-    
+
+    private UUID newScheduleId;
+
     private String notes;
 }
