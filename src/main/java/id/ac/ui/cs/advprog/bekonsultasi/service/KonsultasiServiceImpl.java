@@ -243,8 +243,12 @@ public class KonsultasiServiceImpl implements KonsultasiService {
     }
 
     @Override
-    public KonsultasiResponseDto getKonsultasiById(UUID konsultasiId) {
-        return convertToResponseDto(findKonsultasiById(konsultasiId));
+    public KonsultasiResponseDto getKonsultasiById(UUID konsultasiId, UUID userId, String role) {
+        Konsultasi konsultasi = findKonsultasiById(konsultasiId);
+    
+        validateUserRoleAndOwnership(konsultasi, userId, role);
+        
+        return convertToResponseDto(konsultasi);
     }
 
     @Override

@@ -13,7 +13,7 @@ public interface KonsultasiService {
     KonsultasiResponseDto acceptReschedule(UUID konsultasiId, UUID caregiverId);
     KonsultasiResponseDto rejectReschedule(UUID konsultasiId, UUID caregiverId);
     KonsultasiResponseDto rescheduleKonsultasi(UUID konsultasiId, RescheduleKonsultasiDto dto, UUID userId, String role);
-    KonsultasiResponseDto getKonsultasiById(UUID konsultasiId);
+    KonsultasiResponseDto getKonsultasiById(UUID konsultasiId, UUID userId, String role);
     List<KonsultasiResponseDto> getKonsultasiByPacilianId(UUID pacilianId);
     List<KonsultasiResponseDto> getKonsultasiByCaregiverId(UUID caregiverId);
     List<KonsultasiResponseDto> getRequestedKonsultasiByCaregiverId(UUID caregiverId);

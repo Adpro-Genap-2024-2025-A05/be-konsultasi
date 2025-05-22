@@ -126,8 +126,11 @@ public class KonsultasiController {
     public ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> getKonsultasiById(
             @PathVariable UUID konsultasiId,
             HttpServletRequest request) {
-        verifyToken(request);
-        KonsultasiResponseDto response = konsultasiService.getKonsultasiById(konsultasiId);
+        TokenVerificationResponseDto verification = verifyToken(request);
+        UUID userId = UUID.fromString(verification.getUserId());
+        String role = verification.getRole().name();
+        
+        KonsultasiResponseDto response = konsultasiService.getKonsultasiById(konsultasiId, userId, role);
 
         return ResponseEntity.ok(ApiResponseDto.success(200, "Success", response));
     }
