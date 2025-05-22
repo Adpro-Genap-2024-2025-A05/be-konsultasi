@@ -239,6 +239,28 @@ public class ScheduleServiceImpl implements ScheduleService {
         return convertToDto(savedSchedule);
     }
 
+    @Override
+    public List<ScheduleResponseDto> getAvailableSchedulesByCaregiver(UUID caregiverId) {
+        List<Schedule> allSchedules = scheduleRepository.findByCaregiverId(caregiverId);
+        
+        List<Schedule> availableSchedules = allSchedules.stream()
+                .filter(this::isScheduleCurrentlyAvailable)
+                .collect(Collectors.toList());
+        
+        return convertToResponseDtoList(availableSchedules);
+    }
+
+    @Override
+    public List<ScheduleResponseDto> getAvailableSchedulesForCaregivers(List<UUID> caregiverIds) {
+        List<Schedule> allSchedules = scheduleRepository.findByCaregiverIdIn(caregiverIds);
+        
+        List<Schedule> availableSchedules = allSchedules.stream()
+                .filter(this::isScheduleCurrentlyAvailable)
+                .collect(Collectors.toList());
+        
+        return convertToResponseDtoList(availableSchedules);
+    }
+
     private void validateScheduleTimes(CreateScheduleDto dto) {
         if (dto.getEndTime().isBefore(dto.getStartTime())) {
             throw new IllegalArgumentException("End time cannot be before start time");
@@ -321,6 +343,15 @@ public class ScheduleServiceImpl implements ScheduleService {
     private void validateScheduleTimes(LocalTime startTime, LocalTime endTime) {
         if (endTime.isBefore(startTime)) {
             throw new IllegalArgumentException("End time cannot be before start time");
+        }
+    }
+
+    private boolean isScheduleCurrentlyAvailable(Schedule schedule) {
+        if (schedule.isOneTime()) {
+            return schedule.getSpecificDate() != null && 
+                schedule.getSpecificDate().isAfter(LocalDate.now());
+        } else {
+            return true;
         }
     }
 }

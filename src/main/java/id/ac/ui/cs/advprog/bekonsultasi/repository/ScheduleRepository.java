@@ -10,4 +10,5 @@ import java.util.UUID;
 @Repository
 public interface ScheduleRepository extends JpaRepository<Schedule, UUID> {
     List<Schedule> findByCaregiverId(UUID caregiverId);
+    List<Schedule> findByCaregiverIdIn(List<UUID> caregiverIds);
 }

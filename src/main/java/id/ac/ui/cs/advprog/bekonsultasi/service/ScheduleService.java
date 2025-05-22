@@ -17,4 +17,6 @@ public interface ScheduleService {
     List<ScheduleResponseDto> getAllSchedules();
     boolean isScheduleAvailableForDateTime(UUID scheduleId, LocalDateTime dateTime);
     List<LocalDateTime> getAvailableDateTimesForSchedule(UUID scheduleId, int weeksAhead);
+    List<ScheduleResponseDto> getAvailableSchedulesByCaregiver(UUID caregiverId);
+    List<ScheduleResponseDto> getAvailableSchedulesForCaregivers(List<UUID> caregiverIds);
 }
