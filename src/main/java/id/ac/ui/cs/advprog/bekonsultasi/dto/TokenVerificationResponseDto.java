@@ -1,6 +1,6 @@
-package id.ac.ui.cs.advprog.bekonsultasi.dto;
+package id.ac.ui.cs.advprog.berating.dto;
 
-import id.ac.ui.cs.advprog.bekonsultasi.enums.Role;
+import id.ac.ui.cs.advprog.berating.enums.Role;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -14,6 +14,7 @@ public class TokenVerificationResponseDto {
     private boolean valid;
     private String userId;
     private String email;
+    private String userName; 
     private Role role;
     private Long expiresIn;
 }

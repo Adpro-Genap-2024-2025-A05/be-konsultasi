@@ -33,6 +33,7 @@ public class TokenVerificationService {
             String email = extractUsername(token); 
             String userId = claims.get("id", String.class);
             String roleStr = claims.get("role", String.class);
+            String userName = claims.get("name", String.class); // Added this line
             
             if (userId == null || roleStr == null) {
                 throw new AuthenticationException("Invalid token: missing required claims");
@@ -50,6 +51,7 @@ public class TokenVerificationService {
                     .valid(true)
                     .userId(userId)
                     .email(email)
+                    .userName(userName) 
                     .role(role)
                     .expiresIn(expiresIn)
                     .build();
@@ -69,6 +71,11 @@ public class TokenVerificationService {
     public Role getUserRoleFromToken(String token) {
         TokenVerificationResponseDto verification = verifyToken(token);
         return verification.getRole();
+    }
+    
+    public String getUserNameFromToken(String token) {
+        TokenVerificationResponseDto verification = verifyToken(token);
+        return verification.getUserName();
     }
     
     public void validateRole(String token, Role expectedRole) {
