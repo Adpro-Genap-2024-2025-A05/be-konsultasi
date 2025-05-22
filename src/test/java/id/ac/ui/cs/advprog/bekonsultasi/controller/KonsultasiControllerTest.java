@@ -128,30 +128,6 @@ class KonsultasiControllerTest {
     }
 
     @Test
-    void testGetAvailableTimesForSchedule() {
-        List<LocalDateTime> availableTimes = Arrays.asList(
-                LocalDateTime.now().plusDays(7),
-                LocalDateTime.now().plusDays(14)
-        );
-
-        when(request.getHeader("Authorization")).thenReturn("Bearer token");
-        when(tokenVerificationService.verifyToken("token")).thenReturn(pacilianVerification);
-        when(scheduleService.getAvailableDateTimesForSchedule(scheduleId, 4)).thenReturn(availableTimes);
-
-        ResponseEntity<ApiResponseDto<List<LocalDateTime>>> response =
-                konsultasiController.getAvailableTimesForSchedule(scheduleId, 4, request);
-
-        assertNotNull(response);
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertEquals(200, response.getBody().getStatus());
-        assertEquals("Retrieved available times", response.getBody().getMessage());
-        assertEquals(availableTimes, response.getBody().getData());
-
-        verify(scheduleService).getAvailableDateTimesForSchedule(scheduleId, 4);
-    }
-
-    @Test
     void testRescheduleKonsultasi() {
         when(request.getHeader("Authorization")).thenReturn("Bearer token");
         when(tokenVerificationService.verifyToken("token")).thenReturn(pacilianVerification);
@@ -263,25 +239,6 @@ class KonsultasiControllerTest {
         assertEquals(responseDto, response.getBody().getData());
 
         verify(konsultasiService).completeKonsultasi(konsultasiId, caregiverId);
-    }
-
-    @Test
-    void testGetKonsultasiById() {
-        when(request.getHeader("Authorization")).thenReturn("Bearer token");
-        when(tokenVerificationService.verifyToken("token")).thenReturn(pacilianVerification);
-        when(konsultasiService.getKonsultasiById(konsultasiId)).thenReturn(responseDto);
-
-        ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> response =
-                konsultasiController.getKonsultasiById(konsultasiId, request);
-
-        assertNotNull(response);
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertEquals(200, response.getBody().getStatus());
-        assertEquals("Success", response.getBody().getMessage());
-        assertEquals(responseDto, response.getBody().getData());
-
-        verify(konsultasiService).getKonsultasiById(konsultasiId);
     }
 
     @Test

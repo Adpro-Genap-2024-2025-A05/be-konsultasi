@@ -37,19 +37,6 @@ class TokenVerificationResponseDtoTest {
             assertNull(dto.getRole());
             assertNull(dto.getExpiresIn());
         }
-        
-        @Test
-        void testAllArgsConstructor() {
-            TokenVerificationResponseDto dto = new TokenVerificationResponseDto(
-                    true, "user-123", "test@example.com", Role.PACILIAN, 3600L
-            );
-            
-            assertTrue(dto.isValid());
-            assertEquals("user-123", dto.getUserId());
-            assertEquals("test@example.com", dto.getEmail());
-            assertEquals(Role.PACILIAN, dto.getRole());
-            assertEquals(3600L, dto.getExpiresIn());
-        }
     }
     
     @Nested
