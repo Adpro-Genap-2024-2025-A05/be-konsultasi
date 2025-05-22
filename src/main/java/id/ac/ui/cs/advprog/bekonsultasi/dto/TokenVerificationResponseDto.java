@@ -1,6 +1,6 @@
-package id.ac.ui.cs.advprog.berating.dto;
+package id.ac.ui.cs.advprog.bekonsultasi.dto;
 
-import id.ac.ui.cs.advprog.berating.enums.Role;
+import id.ac.ui.cs.advprog.bekonsultasi.enums.Role;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
