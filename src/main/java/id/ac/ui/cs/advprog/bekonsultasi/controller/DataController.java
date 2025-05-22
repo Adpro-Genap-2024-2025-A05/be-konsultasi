@@ -16,64 +16,64 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*")
 public class DataController {
-    
+
     private final ScheduleService scheduleService;
 
     @GetMapping(path = "/caregiver/{caregiverId}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<ApiResponseDto<List<ScheduleResponseDto>>> getCaregiverAvailableSchedules(
+    public ResponseEntity<ApiResponseDto<List<ScheduleResponseDto>>> getCaregiverSchedules(
             @PathVariable String caregiverId) {
-        
+
         try {
             UUID caregiverUuid = UUID.fromString(caregiverId);
-            List<ScheduleResponseDto> schedules = scheduleService.getAvailableSchedulesByCaregiver(caregiverUuid);
-            
+            List<ScheduleResponseDto> schedules = scheduleService.getCaregiverSchedules(caregiverUuid);
+
             return ResponseEntity.ok(
-                ApiResponseDto.success(200, 
-                    "Available schedules retrieved successfully", 
-                    schedules)
+                    ApiResponseDto.success(200,
+                            "Caregiver schedules retrieved successfully",
+                            schedules)
             );
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest()
-                .body(ApiResponseDto.error(400, "Invalid caregiver ID format"));
+                    .body(ApiResponseDto.error(400, "Invalid caregiver ID format"));
         } catch (Exception e) {
             return ResponseEntity.status(500)
-                .body(ApiResponseDto.error(500, "Error retrieving schedules"));
+                    .body(ApiResponseDto.error(500, "Error retrieving schedules"));
         }
     }
 
-    @GetMapping(path = "/available", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<ApiResponseDto<List<ScheduleResponseDto>>> getAvailableSchedulesForMultipleCaregivers(
+    @GetMapping(path = "/schedules", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponseDto<List<ScheduleResponseDto>>> getSchedulesForMultipleCaregivers(
             @RequestParam(required = false) List<String> caregiverIds) {
-        
+
         try {
             List<ScheduleResponseDto> schedules;
-            
+
             if (caregiverIds != null && !caregiverIds.isEmpty()) {
                 List<UUID> uuidList = caregiverIds.stream()
-                    .map(UUID::fromString)
-                    .toList();
-                schedules = scheduleService.getAvailableSchedulesForCaregivers(uuidList);
+                        .map(UUID::fromString)
+                        .toList();
+                schedules = scheduleService.getSchedulesForCaregivers(uuidList);
             } else {
-                schedules = List.of();
+                schedules = scheduleService.getAllSchedules();
             }
-            
+
             return ResponseEntity.ok(
-                ApiResponseDto.success(200, 
-                    "Available schedules retrieved successfully", 
-                    schedules)
+                    ApiResponseDto.success(200,
+                            "Schedules retrieved successfully",
+                            schedules)
             );
         } catch (Exception e) {
             return ResponseEntity.status(500)
-                .body(ApiResponseDto.error(500, "Error retrieving available schedules"));
+                    .body(ApiResponseDto.error(500, "Error retrieving schedules"));
         }
     }
 
     @GetMapping(path = "/health", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResponseDto<String>> healthCheck() {
         return ResponseEntity.ok(
-            ApiResponseDto.success(200, 
-                "Doctor service is running", 
-                "OK")
+                ApiResponseDto.success(200,
+                        "Konsultasi service is running",
+                        "OK")
         );
     }
 }
