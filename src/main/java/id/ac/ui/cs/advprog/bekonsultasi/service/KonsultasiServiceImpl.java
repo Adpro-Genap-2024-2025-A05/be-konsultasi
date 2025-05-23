@@ -258,12 +258,18 @@ public class KonsultasiServiceImpl implements KonsultasiService {
 
     @Override
     public List<KonsultasiResponseDto> getKonsultasiByPacilianId(UUID pacilianId) {
-        return convertToDtoList(konsultasiRepository.findByPacilianId(pacilianId));
+        List<Konsultasi> konsultasiList = konsultasiRepository.findByPacilianId(pacilianId);
+        return konsultasiList.stream()
+                .map(k -> convertToResponseDtoByRole(k, "PACILIAN"))
+                .collect(Collectors.toList());
     }
 
     @Override
     public List<KonsultasiResponseDto> getKonsultasiByCaregiverId(UUID caregiverId) {
-        return convertToDtoList(konsultasiRepository.findByCaregiverId(caregiverId));
+        List<Konsultasi> konsultasiList = konsultasiRepository.findByCaregiverId(caregiverId);
+        return konsultasiList.stream()
+                .map(k -> convertToResponseDtoByRole(k, "CAREGIVER"))
+                .collect(Collectors.toList());
     }
 
     @Override
