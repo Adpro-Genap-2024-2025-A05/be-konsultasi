@@ -4,6 +4,7 @@ import id.ac.ui.cs.advprog.bekonsultasi.dto.CreateScheduleDto;
 import id.ac.ui.cs.advprog.bekonsultasi.dto.CreateOneTimeScheduleDto;
 import id.ac.ui.cs.advprog.bekonsultasi.dto.ScheduleResponseDto;
 
+import java.util.concurrent.CompletableFuture;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -20,4 +21,5 @@ public interface ScheduleService {
     List<ScheduleResponseDto> getAvailableSchedulesByCaregiver(UUID caregiverId);
     List<ScheduleResponseDto> getAvailableSchedulesForCaregivers(List<UUID> caregiverIds);
     List<ScheduleResponseDto> getSchedulesForCaregivers(List<UUID> caregiverIds);
+    CompletableFuture<Void> deleteScheduleAsync(UUID scheduleId, UUID caregiverId);
 }

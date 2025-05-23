@@ -14,6 +14,8 @@ import id.ac.ui.cs.advprog.bekonsultasi.service.factory.ScheduleFactory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.scheduling.annotation.Async;
+import java.util.concurrent.CompletableFuture;
 
 import java.time.*;
 import java.time.temporal.TemporalAdjusters;
@@ -73,6 +75,35 @@ public class ScheduleServiceImpl implements ScheduleService {
 
         Schedule updatedSchedule = scheduleRepository.save(schedule);
         return convertToDto(updatedSchedule);
+    }
+
+    @Override
+    @Async
+    @Transactional
+    public CompletableFuture<Void> deleteScheduleAsync(UUID scheduleId, UUID caregiverId) {
+        try {
+            Schedule schedule = findScheduleById(scheduleId);
+
+            if (!schedule.getCaregiverId().equals(caregiverId)) {
+                throw new AuthenticationException("You can only delete your own schedules");
+            }
+
+            List<Konsultasi> futureKonsultations = konsultasiRepository.findByScheduleId(scheduleId).stream()
+                    .filter(k -> !k.getStatus().equals("CANCELLED") && !k.getStatus().equals("DONE"))
+                    .filter(k -> k.getScheduleDateTime().isAfter(LocalDateTime.now()))
+                    .toList();
+
+            if (!futureKonsultations.isEmpty()) {
+                throw new ScheduleException("Cannot delete schedule with future consultations");
+            }
+
+            scheduleRepository.deleteById(scheduleId);
+            return CompletableFuture.completedFuture(null);
+        } catch (Exception e) {
+            CompletableFuture<Void> future = new CompletableFuture<>();
+            future.completeExceptionally(e);
+            return future;
+        }
     }
 
     @Override
