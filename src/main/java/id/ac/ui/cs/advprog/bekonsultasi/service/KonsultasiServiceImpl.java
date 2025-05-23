@@ -15,9 +15,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -25,6 +29,7 @@ public class KonsultasiServiceImpl implements KonsultasiService {
     private final KonsultasiRepository konsultasiRepository;
     private final ScheduleRepository scheduleRepository;
     private final ScheduleService scheduleService;
+    private final UserDataService userDataService;
 
     @Override
     @Transactional
@@ -125,7 +130,8 @@ public class KonsultasiServiceImpl implements KonsultasiService {
 
     @Override
     @Transactional
-    public KonsultasiResponseDto rescheduleKonsultasi(UUID konsultasiId, RescheduleKonsultasiDto dto, UUID userId, String role) {
+    public KonsultasiResponseDto rescheduleKonsultasi(UUID konsultasiId, RescheduleKonsultasiDto dto, UUID userId,
+            String role) {
         Konsultasi konsultasi = findKonsultasiById(konsultasiId);
         validateUserRoleAndOwnership(konsultasi, userId, role);
 
@@ -248,9 +254,9 @@ public class KonsultasiServiceImpl implements KonsultasiService {
     @Override
     public KonsultasiResponseDto getKonsultasiById(UUID konsultasiId, UUID userId, String role) {
         Konsultasi konsultasi = findKonsultasiById(konsultasiId);
-    
+
         validateUserRoleAndOwnership(konsultasi, userId, role);
-        
+
         return convertToResponseDto(konsultasi);
     }
 
@@ -307,7 +313,7 @@ public class KonsultasiServiceImpl implements KonsultasiService {
     }
 
     private Konsultasi buildNewKonsultasi(CreateKonsultasiDto dto, UUID pacilianId,
-                                          Schedule schedule, LocalDateTime scheduleDateTime) {
+            Schedule schedule, LocalDateTime scheduleDateTime) {
         Konsultasi konsultasi = Konsultasi.builder()
                 .scheduleId(dto.getScheduleId())
                 .caregiverId(schedule.getCaregiverId())
@@ -329,12 +335,76 @@ public class KonsultasiServiceImpl implements KonsultasiService {
     }
 
     private List<KonsultasiResponseDto> convertToDtoList(List<Konsultasi> konsultasiList) {
-        return konsultasiList.stream()
-                .map(this::convertToResponseDto)
-                .collect(Collectors.toList());
+        if (konsultasiList.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        try {
+            Set<UUID> caregiverIds = konsultasiList.stream()
+                    .map(Konsultasi::getCaregiverId)
+                    .collect(Collectors.toSet());
+
+            Set<UUID> pacilianIds = konsultasiList.stream()
+                    .map(Konsultasi::getPacilianId)
+                    .collect(Collectors.toSet());
+
+            Map<UUID, CompletableFuture<CaregiverPublicDto>> caregiverFutures = caregiverIds.stream()
+                    .collect(Collectors.toMap(
+                            id -> id,
+                            userDataService::getCaregiverByIdAsync));
+
+            Map<UUID, CompletableFuture<PacilianPublicDto>> pacilianFutures = pacilianIds.stream()
+                    .collect(Collectors.toMap(
+                            id -> id,
+                            userDataService::getPacilianByIdAsync));
+
+            CompletableFuture<Void> allFutures = CompletableFuture.allOf(
+                    Stream.concat(
+                            caregiverFutures.values().stream(),
+                            pacilianFutures.values().stream()).toArray(CompletableFuture[]::new));
+            allFutures.get();
+
+            return konsultasiList.stream()
+                    .map(konsultasi -> {
+                        try {
+                            return KonsultasiResponseDto.builder()
+                                    .id(konsultasi.getId())
+                                    .scheduleId(konsultasi.getScheduleId())
+                                    .caregiverId(konsultasi.getCaregiverId())
+                                    .pacilianId(konsultasi.getPacilianId())
+                                    .scheduleDateTime(konsultasi.getScheduleDateTime())
+                                    .notes(konsultasi.getNotes())
+                                    .status(konsultasi.getStatus())
+                                    .lastUpdated(LocalDateTime.now())
+                                    .caregiverData(caregiverFutures.get(konsultasi.getCaregiverId()).get())
+                                    .pacilianData(pacilianFutures.get(konsultasi.getPacilianId()).get())
+                                    .build();
+                        } catch (InterruptedException | ExecutionException e) {
+                            Thread.currentThread().interrupt();
+                            return KonsultasiResponseDto.builder()
+                                    .id(konsultasi.getId())
+                                    .scheduleId(konsultasi.getScheduleId())
+                                    .caregiverId(konsultasi.getCaregiverId())
+                                    .pacilianId(konsultasi.getPacilianId())
+                                    .scheduleDateTime(konsultasi.getScheduleDateTime())
+                                    .notes(konsultasi.getNotes())
+                                    .status(konsultasi.getStatus())
+                                    .lastUpdated(LocalDateTime.now())
+                                    .caregiverData(null)
+                                    .pacilianData(null)
+                                    .build();
+                        }
+                    })
+                    .collect(Collectors.toList());
+        } catch (InterruptedException | ExecutionException e) {
+            Thread.currentThread().interrupt();
+            return konsultasiList.stream()
+                    .map(this::convertToResponseDtoBasic)
+                    .collect(Collectors.toList());
+        }
     }
 
-    private KonsultasiResponseDto convertToResponseDto(Konsultasi konsultasi) {
+    private KonsultasiResponseDto convertToResponseDtoBasic(Konsultasi konsultasi) {
         return KonsultasiResponseDto.builder()
                 .id(konsultasi.getId())
                 .scheduleId(konsultasi.getScheduleId())
@@ -344,6 +414,47 @@ public class KonsultasiServiceImpl implements KonsultasiService {
                 .notes(konsultasi.getNotes())
                 .status(konsultasi.getStatus())
                 .lastUpdated(LocalDateTime.now())
+                .caregiverData(null)
+                .pacilianData(null)
                 .build();
+    }
+
+    private KonsultasiResponseDto convertToResponseDto(Konsultasi konsultasi) {
+        try {
+            CompletableFuture<CaregiverPublicDto> caregiverFuture = userDataService
+                    .getCaregiverByIdAsync(konsultasi.getCaregiverId());
+            CompletableFuture<PacilianPublicDto> pacilianFuture = userDataService
+                    .getPacilianByIdAsync(konsultasi.getPacilianId());
+
+            CompletableFuture<Void> allFutures = CompletableFuture.allOf(caregiverFuture, pacilianFuture);
+            allFutures.get();
+
+            return KonsultasiResponseDto.builder()
+                    .id(konsultasi.getId())
+                    .scheduleId(konsultasi.getScheduleId())
+                    .caregiverId(konsultasi.getCaregiverId())
+                    .pacilianId(konsultasi.getPacilianId())
+                    .scheduleDateTime(konsultasi.getScheduleDateTime())
+                    .notes(konsultasi.getNotes())
+                    .status(konsultasi.getStatus())
+                    .lastUpdated(LocalDateTime.now())
+                    .caregiverData(caregiverFuture.get())
+                    .pacilianData(pacilianFuture.get())
+                    .build();
+        } catch (InterruptedException | ExecutionException e) {
+            Thread.currentThread().interrupt();
+            return KonsultasiResponseDto.builder()
+                    .id(konsultasi.getId())
+                    .scheduleId(konsultasi.getScheduleId())
+                    .caregiverId(konsultasi.getCaregiverId())
+                    .pacilianId(konsultasi.getPacilianId())
+                    .scheduleDateTime(konsultasi.getScheduleDateTime())
+                    .notes(konsultasi.getNotes())
+                    .status(konsultasi.getStatus())
+                    .lastUpdated(LocalDateTime.now())
+                    .caregiverData(null)
+                    .pacilianData(null)
+                    .build();
+        }
     }
 }
