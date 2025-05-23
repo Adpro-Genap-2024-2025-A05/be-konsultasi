@@ -20,6 +20,5 @@ public interface ScheduleService {
     List<LocalDateTime> getAvailableDateTimesForSchedule(UUID scheduleId, int weeksAhead);
     List<ScheduleResponseDto> getAvailableSchedulesByCaregiver(UUID caregiverId);
     List<ScheduleResponseDto> getAvailableSchedulesForCaregivers(List<UUID> caregiverIds);
-    List<ScheduleResponseDto> getSchedulesForCaregivers(List<UUID> caregiverIds);
     CompletableFuture<Void> deleteScheduleAsync(UUID scheduleId, UUID caregiverId);
 }
