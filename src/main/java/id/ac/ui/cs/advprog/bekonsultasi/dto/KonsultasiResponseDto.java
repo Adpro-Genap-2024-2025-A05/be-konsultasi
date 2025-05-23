@@ -21,4 +21,7 @@ public class KonsultasiResponseDto {
     private String notes;
     private String status;
     private LocalDateTime lastUpdated;
+
+    private CaregiverPublicDto caregiverData;
+    private PacilianPublicDto pacilianData;
 }
