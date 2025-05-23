@@ -261,12 +261,6 @@ public class ScheduleServiceImpl implements ScheduleService {
         return convertToResponseDtoList(availableSchedules);
     }
 
-    @Override
-    public List<ScheduleResponseDto> getSchedulesForCaregivers(List<UUID> caregiverIds) {
-        List<Schedule> allSchedules = scheduleRepository.findByCaregiverIdIn(caregiverIds);
-        return convertToResponseDtoList(allSchedules);
-    }
-
     private void validateScheduleTimes(CreateScheduleDto dto) {
         if (dto.getEndTime().isBefore(dto.getStartTime())) {
             throw new IllegalArgumentException("End time cannot be before start time");
