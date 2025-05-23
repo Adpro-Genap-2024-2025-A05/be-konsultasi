@@ -1,8 +1,56 @@
+# C4 Model of the Current Architecture
+
+## Context Diagram
+
+![Context Diagram](./images/context-diagram.png)
+
+## Container Diagram
+
+![Container Diagram](./images/container-diagram.png)
+
+## Deployment Diagram
+
+![Deployment Diagram](./images/deployment-diagram.png)
+
+## Risk Analysis & Architecture Modification
+
+![Risk Analysis](./images/risk-analysis.png)
+
+**1. Risiko Kebocoran Kredensial Database** \
+Kebocoran kredensial database bisa mengakibatkan seluruh data pasien dan medis yang sensitif terbuka untuk pihak tidak bertanggung jawab.
+
+Mitigasi: Pada desain yang dimodifikasi ditambahkan lapisan Security Service yang khusus menangani validasi akses dan audit trail setiap transaksi database. Selain itu, kredensial database juga disimpan terpisah melalui sistem API Gateway yang berfungsi sebagai perantara antara aplikasi dan database, sehingga mengurangi eksposur langsung ke kredensial database.
+
+**2. Risiko Single Point of Failure pada Single Page Application** \
+Desain sebelumnya menunjukkan bahwa seluruh aksesibilitas sistem bergantung pada satu aplikasi SPA, yang bisa menjadi single point of failure jika terjadi masalah pada container tersebut.
+
+Mitigasi: Desain baru memperkenalkan arsitektur failover dengan menambahkan Backup SPA yang dapat mengambil alih jika SPA utama mengalami kegagalan. Selain itu, desain baru juga mengimplementasikan load balancer untuk SPA utama, sehingga traffic dapat didistribusikan secara merata dan mengurangi beban pada single point.
+
+# Individu (Bastian Adiputra Siregar)
+
+## Component Diagram
+
+![Component Diagram Bastian](./images/component-diagram-bastian.png)
+
+## Code Diagram
+
+![Code Diagram Bastian](./images/code-diagram-bastian.png)
+
+# Individu (Steven Setiawan)
+
+## Component Diagram
+
+![Component Diagram Steven](./images/component-diagram-steven.png)
+
+## Code Diagram
+
+![Code Diagram Steven](./images/code-diagram-steven.png)
+
+# Schedule Component - BE-Konsultasi Service
+
 # Deployment
 
 Link: [BE-Konsultasi Deployment](http://52.202.150.103/)
-
-# Schedule Component - BE-Konsultasi Service
 
 ## Overview
 - Dokter dapat membuat jadwal (hari dan jam) mingguan baru dengan status available. (C)
@@ -131,7 +179,6 @@ Builder Pattern dipilih karena objek Schedule memiliki beberapa field yang harus
 ### Model Layer
 
 - `Konsultasi.java`: Model utama yang menyimpan data konsultasi dan state saat ini
-- `KonsultasiHistory.java`: Model untuk mencatat perubahan status konsultasi 
 - `state/KonsultasiState.java`: Interface untuk State Pattern 
 - `state/RequestedState.java`: Status permintaan awal 
 - `state/ConfirmedState.java`: Status setelah dikonfirmasi dokter 
@@ -141,7 +188,6 @@ Builder Pattern dipilih karena objek Schedule memiliki beberapa field yang harus
 ### Repository Layer
 
 - `KonsultasiRepository.java`: Menangani penyimpanan dan pengambilan data konsultasi 
-- `KonsultasiHistoryRepository.java`: Menangani penyimpanan dan pengambilan data history
 
 ### Service Layer
 

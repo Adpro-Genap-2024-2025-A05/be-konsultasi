@@ -87,6 +87,7 @@ jobs:
             cat > .env << EOL
             POSTGRES_USER=${{ secrets.POSTGRES_USER }}
             POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+            AUTH_SERVICE_URL=${{ secrets.AUTH_SERVICE_URL }}
             EOL
             
             chmod 600 .env

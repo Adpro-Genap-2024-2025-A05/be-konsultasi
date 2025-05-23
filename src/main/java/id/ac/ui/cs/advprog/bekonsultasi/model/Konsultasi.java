@@ -2,43 +2,61 @@ package id.ac.ui.cs.advprog.bekonsultasi.model;
 
 import id.ac.ui.cs.advprog.bekonsultasi.model.KonsultasiState.KonsultasiState;
 import id.ac.ui.cs.advprog.bekonsultasi.model.KonsultasiState.RequestedState;
-
-import lombok.Getter;
-import lombok.Setter;
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.UUID;
 
-@Getter @Setter
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@Entity
+@Table(name = "konsultasi")
 public class Konsultasi {
-    private String id;
-    private LocalDateTime schedule;
-    private String paciliansId;
-    private String careGiverId;
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+
+    @Column(nullable = false)
+    private UUID scheduleId;
+
+    @Column(nullable = false)
+    private UUID caregiverId;
+
+    @Column(nullable = false)
+    private UUID pacilianId;
+
+    @Column(nullable = false)
+    private LocalDateTime scheduleDateTime;
+
+    @Column
+    private LocalDateTime originalScheduleDateTime;
+
+    @Column(columnDefinition = "TEXT")
     private String notes;
-    private String stateValue;
-    private List<KonsultasiHistory> historyList = new ArrayList<>();
-    private transient KonsultasiState state;
 
-    public Konsultasi(String paciliansId, String careGiverId, LocalDateTime schedule, String notes) {
-        this.paciliansId = paciliansId;
-        this.careGiverId = careGiverId;
-        this.schedule = schedule;
-        this.notes = notes;
+    @Transient
+    private KonsultasiState state;
 
-        this.state = new RequestedState();
-        this.stateValue = state.getStateName();
+    @Column(nullable = false)
+    private String status;
+
+    @PrePersist
+    public void onCreate() {
+        if (status == null) {
+            status = "REQUESTED";
+            state = new RequestedState();
+        }
     }
 
     public void setState(KonsultasiState state) {
         this.state = state;
-        this.stateValue = state.getStateName();
-    }
-
-    public void addHistory(String description) {
-        KonsultasiHistory history = new KonsultasiHistory(this, description);
-        historyList.add(history);
+        this.status = state.getStateName();
     }
 
     public void confirm() {
@@ -53,7 +71,15 @@ public class Konsultasi {
         state.complete(this);
     }
 
-    public void reschedule(LocalDateTime newSchedule) {
-        state.reschedule(this, newSchedule);
+    public void reschedule(LocalDateTime newDateTime) {
+        state.reschedule(this, newDateTime);
+    }
+
+    public LocalDateTime getOriginalScheduleDateTime() {
+        return originalScheduleDateTime;
+    }
+    
+    public void setOriginalScheduleDateTime(LocalDateTime originalScheduleDateTime) {
+        this.originalScheduleDateTime = originalScheduleDateTime;
     }
 }
