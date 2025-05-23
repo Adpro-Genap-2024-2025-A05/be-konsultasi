@@ -2,7 +2,9 @@ package id.ac.ui.cs.advprog.bekonsultasi.service;
 
 import id.ac.ui.cs.advprog.bekonsultasi.dto.CreateOneTimeScheduleDto;
 import id.ac.ui.cs.advprog.bekonsultasi.dto.CreateScheduleDto;
+import id.ac.ui.cs.advprog.bekonsultasi.dto.KonsultasiResponseDto;
 import id.ac.ui.cs.advprog.bekonsultasi.dto.ScheduleResponseDto;
+import id.ac.ui.cs.advprog.bekonsultasi.dto.RescheduleKonsultasiDto;
 import id.ac.ui.cs.advprog.bekonsultasi.exception.AuthenticationException;
 import id.ac.ui.cs.advprog.bekonsultasi.exception.ScheduleConflictException;
 import id.ac.ui.cs.advprog.bekonsultasi.exception.ScheduleException;
@@ -22,10 +24,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -171,7 +170,6 @@ class ScheduleServiceImplTest {
         when(scheduleRepository.findById(oneTimeId)).thenReturn(Optional.of(oneTimeSchedule));
         when(konsultasiRepository.findByScheduleId(oneTimeId)).thenReturn(new ArrayList<>());
 
-        // Check for the specific date
         LocalDateTime correctDateTime = LocalDateTime.of(
                 LocalDate.of(2025, 6, 2),
                 LocalTime.of(10, 30));
@@ -179,7 +177,6 @@ class ScheduleServiceImplTest {
         boolean isAvailable = scheduleService.isScheduleAvailableForDateTime(oneTimeId, correctDateTime);
         assertTrue(isAvailable);
 
-        // Check for a different date with same day of week
         LocalDateTime wrongDateTime = LocalDateTime.of(
                 LocalDate.of(2025, 6, 9),
                 LocalTime.of(10, 30));
@@ -199,7 +196,6 @@ class ScheduleServiceImplTest {
         assertFalse(availableTimes.isEmpty());
         assertEquals(4, availableTimes.size());
 
-        // All dates should be Mondays
         for (LocalDateTime dateTime : availableTimes) {
             assertEquals(DayOfWeek.MONDAY, dateTime.getDayOfWeek());
             assertEquals(LocalTime.of(10, 0), dateTime.toLocalTime());
@@ -242,5 +238,40 @@ class ScheduleServiceImplTest {
                 scheduleService.deleteSchedule(scheduleId, caregiverId));
 
         verify(scheduleRepository, never()).deleteById(scheduleId);
+    }
+
+    @Test
+    void testIsScheduleCurrentlyAvailable_OneTimeScheduleToday() {
+        Schedule todayOneTime = Schedule.builder()
+                .id(UUID.randomUUID())
+                .caregiverId(caregiverId)
+                .day(DayOfWeek.MONDAY)
+                .startTime(LocalTime.of(10, 0))
+                .endTime(LocalTime.of(11, 0))
+                .specificDate(LocalDate.now())
+                .oneTime(true)
+                .build();
+
+        when(scheduleRepository.findByCaregiverId(caregiverId)).thenReturn(Arrays.asList(todayOneTime));
+
+        List<ScheduleResponseDto> result = scheduleService.getAvailableSchedulesByCaregiver(caregiverId);
+
+        assertEquals(0, result.size());
+    }
+
+    @Test
+    void testValidateScheduleTimes_SameStartAndEndTime() {
+        CreateScheduleDto dto = new CreateScheduleDto();
+        dto.setDay(DayOfWeek.MONDAY);
+        dto.setStartTime(LocalTime.of(10, 0));
+        dto.setEndTime(LocalTime.of(10, 0));
+
+        when(scheduleRepository.findByCaregiverId(caregiverId)).thenReturn(new ArrayList<>());
+        when(scheduleFactory.createSchedule(dto, caregiverId)).thenReturn(schedule);
+        when(scheduleRepository.save(schedule)).thenReturn(schedule);
+
+        ScheduleResponseDto result = scheduleService.createSchedule(dto, caregiverId);
+
+        assertNotNull(result);
     }
 }
