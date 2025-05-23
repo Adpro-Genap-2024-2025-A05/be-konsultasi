@@ -33,5 +33,6 @@ public class ConfirmedState implements KonsultasiState {
     @Override
     public void reschedule(Konsultasi konsultasi, LocalDateTime newDateTime) {
         konsultasi.setScheduleDateTime(newDateTime);
+        konsultasi.setState(new RescheduledState());
     }
 }

@@ -126,19 +126,75 @@ public class KonsultasiServiceImpl implements KonsultasiService {
 
     @Override
     @Transactional
-    public KonsultasiResponseDto rescheduleKonsultasi(UUID konsultasiId, RescheduleKonsultasiDto dto, UUID userId,
-            String role) {
+    public KonsultasiResponseDto updateKonsultasiRequest(UUID konsultasiId, UpdateKonsultasiRequestDto dto, UUID pacilianId) {
         Konsultasi konsultasi = findKonsultasiById(konsultasiId);
-        validateUserRoleAndOwnership(konsultasi, userId, role);
+        validateUserRoleAndOwnership(konsultasi, pacilianId, "PACILIAN");
 
         if (!"REQUESTED".equals(konsultasi.getStatus())) {
-            throw new ScheduleException("Consultation can only be rescheduled when in REQUESTED state");
+            throw new ScheduleException("Consultation request can only be updated when in REQUESTED state");
         }
 
         UUID targetScheduleId = konsultasi.getScheduleId();
 
         if (dto.getNewScheduleId() != null) {
+            Schedule newSchedule = findScheduleById(dto.getNewScheduleId());
 
+            if (!newSchedule.getCaregiverId().equals(konsultasi.getCaregiverId())) {
+                throw new ScheduleException("Cannot change to a different caregiver's schedule");
+            }
+
+            targetScheduleId = dto.getNewScheduleId();
+        }
+
+        if (!scheduleService.isScheduleAvailableForDateTime(targetScheduleId, dto.getNewScheduleDateTime())) {
+            throw new ScheduleException("The requested date and time are not available");
+        }
+
+        List<String> completedStatuses = List.of("CANCELLED", "DONE");
+        List<Konsultasi> activeKonsultations = konsultasiRepository.findByPacilianIdAndStatusNotIn(
+                pacilianId, completedStatuses);
+
+        for (Konsultasi existingKonsultasi : activeKonsultations) {
+            if (!existingKonsultasi.getId().equals(konsultasiId)) {
+                LocalDateTime existingStart = existingKonsultasi.getScheduleDateTime();
+                LocalDateTime existingEnd = existingStart.plusHours(1);
+                LocalDateTime newEnd = dto.getNewScheduleDateTime().plusHours(1);
+
+                if ((dto.getNewScheduleDateTime().isBefore(existingEnd) || dto.getNewScheduleDateTime().isEqual(existingEnd)) &&
+                        (newEnd.isAfter(existingStart) || newEnd.isEqual(existingStart))) {
+                    throw new ScheduleException("You already have another consultation scheduled at this time");
+                }
+            }
+        }
+
+        if (dto.getNewScheduleId() != null) {
+            konsultasi.setScheduleId(targetScheduleId);
+        }
+        
+        konsultasi.setScheduleDateTime(dto.getNewScheduleDateTime());
+        
+        if (dto.getNotes() != null) {
+            konsultasi.setNotes(dto.getNotes());
+        }
+
+        Konsultasi savedKonsultasi = konsultasiRepository.save(konsultasi);
+
+        return convertToResponseDto(savedKonsultasi);
+    }
+
+    @Override
+    @Transactional
+    public KonsultasiResponseDto rescheduleKonsultasi(UUID konsultasiId, RescheduleKonsultasiDto dto, UUID caregiverId) {
+        Konsultasi konsultasi = findKonsultasiById(konsultasiId);
+        validateUserRoleAndOwnership(konsultasi, caregiverId, "CAREGIVER");
+
+        if (!"CONFIRMED".equals(konsultasi.getStatus())) {
+            throw new ScheduleException("Consultation can only be rescheduled when in CONFIRMED state");
+        }
+
+        UUID targetScheduleId = konsultasi.getScheduleId();
+
+        if (dto.getNewScheduleId() != null) {
             Schedule newSchedule = findScheduleById(dto.getNewScheduleId());
 
             if (!newSchedule.getCaregiverId().equals(konsultasi.getCaregiverId())) {
@@ -148,45 +204,20 @@ public class KonsultasiServiceImpl implements KonsultasiService {
             targetScheduleId = dto.getNewScheduleId();
         }
 
-        LocalDateTime currentDateTime = konsultasi.getScheduleDateTime();
-
-        List<Konsultasi> otherKonsultations = konsultasiRepository.findByScheduleId(targetScheduleId)
-                .stream()
-                .filter(k -> !k.getId().equals(konsultasiId))
-                .collect(Collectors.toList());
-
-        boolean isAvailable = true;
-        for (Konsultasi k : otherKonsultations) {
-            if (!k.getStatus().equals("CANCELLED") && !k.getStatus().equals("DONE")) {
-
-                if (isTimeConflict(k.getScheduleDateTime(), dto.getNewScheduleDateTime())) {
-                    isAvailable = false;
-                    break;
-                }
-
-                if ("RESCHEDULED".equals(k.getStatus()) && k.getOriginalScheduleDateTime() != null) {
-                    if (isTimeConflict(k.getOriginalScheduleDateTime(), dto.getNewScheduleDateTime())) {
-                        isAvailable = false;
-                        break;
-                    }
-                }
-            }
-        }
-
-        if (!isAvailable) {
+        if (!scheduleService.isScheduleAvailableForDateTime(targetScheduleId, dto.getNewScheduleDateTime())) {
             throw new ScheduleException("The requested date and time are not available");
         }
+
+        LocalDateTime currentDateTime = konsultasi.getScheduleDateTime();
 
         initializeState(konsultasi);
 
         try {
-
             if (dto.getNewScheduleId() != null) {
                 konsultasi.setScheduleId(targetScheduleId);
             }
 
             konsultasi.setOriginalScheduleDateTime(currentDateTime);
-
             konsultasi.reschedule(dto.getNewScheduleDateTime());
 
             if (dto.getNotes() != null) {
@@ -203,9 +234,9 @@ public class KonsultasiServiceImpl implements KonsultasiService {
 
     @Override
     @Transactional
-    public KonsultasiResponseDto acceptReschedule(UUID konsultasiId, UUID caregiverId) {
+    public KonsultasiResponseDto acceptReschedule(UUID konsultasiId, UUID pacilianId) {
         Konsultasi konsultasi = findKonsultasiById(konsultasiId);
-        validateUserRoleAndOwnership(konsultasi, caregiverId, "CAREGIVER");
+        validateUserRoleAndOwnership(konsultasi, pacilianId, "PACILIAN");
 
         if (!"RESCHEDULED".equals(konsultasi.getStatus())) {
             throw new ScheduleException("Only rescheduled consultations can be accepted");
@@ -227,7 +258,7 @@ public class KonsultasiServiceImpl implements KonsultasiService {
     @Transactional
     public KonsultasiResponseDto rejectReschedule(UUID konsultasiId, UUID caregiverId) {
         Konsultasi konsultasi = findKonsultasiById(konsultasiId);
-        validateUserRoleAndOwnership(konsultasi, caregiverId, "CAREGIVER");
+        validateUserRoleAndOwnership(konsultasi, caregiverId, "PACILIAN");
 
         if (!"RESCHEDULED".equals(konsultasi.getStatus())) {
             throw new ScheduleException("Only rescheduled consultations can be rejected");
