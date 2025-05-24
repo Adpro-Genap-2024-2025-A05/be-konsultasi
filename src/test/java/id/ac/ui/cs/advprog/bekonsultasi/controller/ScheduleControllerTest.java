@@ -263,7 +263,7 @@ class ScheduleControllerTest {
         assertEquals("Schedule deleted successfully", response.getBody().getMessage());
         assertNull(response.getBody().getData());
 
-        verify(scheduleService).deleteSchedule(scheduleId, caregiverId);
+        verify(scheduleService).deleteScheduleAsync(scheduleId, caregiverId);
     }
 
     @Test

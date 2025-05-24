@@ -105,7 +105,11 @@ class KonsultasiTest {
 
             LocalDateTime newDateTime = dataBuilder.getDefaultScheduleDateTime().plusDays(3);
             konsultasi.reschedule(newDateTime);
+            assertEquals("RESCHEDULED", konsultasi.getStatus());
             assertEquals(newDateTime, konsultasi.getScheduleDateTime());
+
+            konsultasi.confirm();
+            assertEquals("CONFIRMED", konsultasi.getStatus());
 
             konsultasi.complete();
             assertEquals("DONE", konsultasi.getStatus());
@@ -147,7 +151,7 @@ class KonsultasiTest {
         rescheduledState.reject(konsultasi);
 
         assertEquals(originalDateTime, konsultasi.getScheduleDateTime());
-        assertEquals("REQUESTED", konsultasi.getStatus());
+        assertEquals("CONFIRMED", konsultasi.getStatus());
     }
 
     private static class TestDataBuilder {

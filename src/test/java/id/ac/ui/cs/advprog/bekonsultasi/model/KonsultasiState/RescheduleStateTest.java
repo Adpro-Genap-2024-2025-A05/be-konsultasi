@@ -78,6 +78,6 @@ class RescheduledStateTest {
         rescheduledState.reject(konsultasi);
         
         verify(konsultasi).setScheduleDateTime(originalDateTime);
-        verify(konsultasi).setState(any(RequestedState.class));
+        verify(konsultasi).setState(any(ConfirmedState.class));
     }
 }

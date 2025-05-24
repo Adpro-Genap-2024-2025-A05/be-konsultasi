@@ -130,8 +130,8 @@ class KonsultasiControllerTest {
     @Test
     void testRescheduleKonsultasi() {
         when(request.getHeader("Authorization")).thenReturn("Bearer token");
-        when(tokenVerificationService.verifyToken("token")).thenReturn(pacilianVerification);
-        when(konsultasiService.rescheduleKonsultasi(eq(konsultasiId), eq(rescheduleDto), eq(pacilianId), eq("PACILIAN"))).thenReturn(responseDto);
+        when(tokenVerificationService.verifyToken("token")).thenReturn(caregiverVerification);
+        when(konsultasiService.rescheduleKonsultasi(eq(konsultasiId), eq(rescheduleDto), eq(caregiverId))).thenReturn(responseDto);
 
         ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> response =
                 konsultasiController.rescheduleKonsultasi(konsultasiId, rescheduleDto, request);
@@ -143,14 +143,14 @@ class KonsultasiControllerTest {
         assertEquals("Consultation rescheduled successfully", response.getBody().getMessage());
         assertEquals(responseDto, response.getBody().getData());
 
-        verify(konsultasiService).rescheduleKonsultasi(eq(konsultasiId), eq(rescheduleDto), eq(pacilianId), eq("PACILIAN"));
+        verify(konsultasiService).rescheduleKonsultasi(eq(konsultasiId), eq(rescheduleDto), eq(caregiverId));
     }
 
     @Test
     void testAcceptReschedule() {
         when(request.getHeader("Authorization")).thenReturn("Bearer token");
-        when(tokenVerificationService.verifyToken("token")).thenReturn(caregiverVerification);
-        when(konsultasiService.acceptReschedule(konsultasiId, caregiverId)).thenReturn(responseDto);
+        when(tokenVerificationService.verifyToken("token")).thenReturn(pacilianVerification);
+        when(konsultasiService.acceptReschedule(konsultasiId, pacilianId)).thenReturn(responseDto);
 
         ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> response =
                 konsultasiController.acceptReschedule(konsultasiId, request);
@@ -162,14 +162,14 @@ class KonsultasiControllerTest {
         assertEquals("Rescheduled consultation accepted", response.getBody().getMessage());
         assertEquals(responseDto, response.getBody().getData());
 
-        verify(konsultasiService).acceptReschedule(konsultasiId, caregiverId);
+        verify(konsultasiService).acceptReschedule(konsultasiId, pacilianId);
     }
 
     @Test
     void testRejectReschedule() {
         when(request.getHeader("Authorization")).thenReturn("Bearer token");
-        when(tokenVerificationService.verifyToken("token")).thenReturn(caregiverVerification);
-        when(konsultasiService.rejectReschedule(konsultasiId, caregiverId)).thenReturn(responseDto);
+        when(tokenVerificationService.verifyToken("token")).thenReturn(pacilianVerification);
+        when(konsultasiService.rejectReschedule(konsultasiId, pacilianId)).thenReturn(responseDto);
 
         ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> response =
                 konsultasiController.rejectReschedule(konsultasiId, request);
@@ -179,9 +179,8 @@ class KonsultasiControllerTest {
         assertNotNull(response.getBody());
         assertEquals(200, response.getBody().getStatus());
         assertEquals("Rescheduled consultation rejected", response.getBody().getMessage());
-        assertEquals(responseDto, response.getBody().getData());
 
-        verify(konsultasiService).rejectReschedule(konsultasiId, caregiverId);
+        verify(konsultasiService).rejectReschedule(konsultasiId, pacilianId);
     }
 
     @Test

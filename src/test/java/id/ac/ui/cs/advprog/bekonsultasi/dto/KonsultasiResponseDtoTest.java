@@ -67,7 +67,8 @@ class KonsultasiResponseDtoTest {
             
             KonsultasiResponseDto dto = new KonsultasiResponseDto(
                     id, scheduleId, caregiverId, pacilianId,
-                    scheduleDateTime, "Test notes", "CONFIRMED", lastUpdated
+                    scheduleDateTime, "Test notes", "CONFIRMED", lastUpdated,
+                    null, null
             );
             
             assertEquals(id, dto.getId());
