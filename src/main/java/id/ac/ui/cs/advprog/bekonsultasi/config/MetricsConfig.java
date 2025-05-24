@@ -66,20 +66,6 @@ public class MetricsConfig {
     }
 
     @Bean
-    public Timer konsultasiCreationTimer(MeterRegistry meterRegistry) {
-        return Timer.builder("konsultasi.creation.duration")
-                .description("Time taken to create a consultation")
-                .register(meterRegistry);
-    }
-
-    @Bean
-    public Timer konsultasiProcessingTimer(MeterRegistry meterRegistry) {
-        return Timer.builder("konsultasi.processing.duration")
-                .description("Time taken to process consultation operations")
-                .register(meterRegistry);
-    }
-
-    @Bean
     public Counter konsultasiErrorCounter(MeterRegistry meterRegistry) {
         return Counter.builder("konsultasi.errors.total")
                 .description("Total number of errors in consultation operations")
