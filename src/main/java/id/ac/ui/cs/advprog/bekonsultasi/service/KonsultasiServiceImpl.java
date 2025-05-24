@@ -11,6 +11,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -22,6 +25,7 @@ public class KonsultasiServiceImpl implements KonsultasiService {
     private final KonsultasiRepository konsultasiRepository;
     private final ScheduleRepository scheduleRepository;
     private final ScheduleService scheduleService;
+    private final UserDataService userDataService;
 
     @Override
     @Transactional
@@ -122,18 +126,75 @@ public class KonsultasiServiceImpl implements KonsultasiService {
 
     @Override
     @Transactional
-    public KonsultasiResponseDto rescheduleKonsultasi(UUID konsultasiId, RescheduleKonsultasiDto dto, UUID userId, String role) {
+    public KonsultasiResponseDto updateKonsultasiRequest(UUID konsultasiId, UpdateKonsultasiRequestDto dto, UUID pacilianId) {
         Konsultasi konsultasi = findKonsultasiById(konsultasiId);
-        validateUserRoleAndOwnership(konsultasi, userId, role);
+        validateUserRoleAndOwnership(konsultasi, pacilianId, "PACILIAN");
 
         if (!"REQUESTED".equals(konsultasi.getStatus())) {
-            throw new ScheduleException("Consultation can only be rescheduled when in REQUESTED state");
+            throw new ScheduleException("Consultation request can only be updated when in REQUESTED state");
         }
 
         UUID targetScheduleId = konsultasi.getScheduleId();
 
         if (dto.getNewScheduleId() != null) {
+            Schedule newSchedule = findScheduleById(dto.getNewScheduleId());
 
+            if (!newSchedule.getCaregiverId().equals(konsultasi.getCaregiverId())) {
+                throw new ScheduleException("Cannot change to a different caregiver's schedule");
+            }
+
+            targetScheduleId = dto.getNewScheduleId();
+        }
+
+        if (!scheduleService.isScheduleAvailableForDateTime(targetScheduleId, dto.getNewScheduleDateTime())) {
+            throw new ScheduleException("The requested date and time are not available");
+        }
+
+        List<String> completedStatuses = List.of("CANCELLED", "DONE");
+        List<Konsultasi> activeKonsultations = konsultasiRepository.findByPacilianIdAndStatusNotIn(
+                pacilianId, completedStatuses);
+
+        for (Konsultasi existingKonsultasi : activeKonsultations) {
+            if (!existingKonsultasi.getId().equals(konsultasiId)) {
+                LocalDateTime existingStart = existingKonsultasi.getScheduleDateTime();
+                LocalDateTime existingEnd = existingStart.plusHours(1);
+                LocalDateTime newEnd = dto.getNewScheduleDateTime().plusHours(1);
+
+                if ((dto.getNewScheduleDateTime().isBefore(existingEnd) || dto.getNewScheduleDateTime().isEqual(existingEnd)) &&
+                        (newEnd.isAfter(existingStart) || newEnd.isEqual(existingStart))) {
+                    throw new ScheduleException("You already have another consultation scheduled at this time");
+                }
+            }
+        }
+
+        if (dto.getNewScheduleId() != null) {
+            konsultasi.setScheduleId(targetScheduleId);
+        }
+        
+        konsultasi.setScheduleDateTime(dto.getNewScheduleDateTime());
+        
+        if (dto.getNotes() != null) {
+            konsultasi.setNotes(dto.getNotes());
+        }
+
+        Konsultasi savedKonsultasi = konsultasiRepository.save(konsultasi);
+
+        return convertToResponseDto(savedKonsultasi);
+    }
+
+    @Override
+    @Transactional
+    public KonsultasiResponseDto rescheduleKonsultasi(UUID konsultasiId, RescheduleKonsultasiDto dto, UUID caregiverId) {
+        Konsultasi konsultasi = findKonsultasiById(konsultasiId);
+        validateUserRoleAndOwnership(konsultasi, caregiverId, "CAREGIVER");
+
+        if (!"CONFIRMED".equals(konsultasi.getStatus())) {
+            throw new ScheduleException("Consultation can only be rescheduled when in CONFIRMED state");
+        }
+
+        UUID targetScheduleId = konsultasi.getScheduleId();
+
+        if (dto.getNewScheduleId() != null) {
             Schedule newSchedule = findScheduleById(dto.getNewScheduleId());
 
             if (!newSchedule.getCaregiverId().equals(konsultasi.getCaregiverId())) {
@@ -143,45 +204,20 @@ public class KonsultasiServiceImpl implements KonsultasiService {
             targetScheduleId = dto.getNewScheduleId();
         }
 
-        LocalDateTime currentDateTime = konsultasi.getScheduleDateTime();
-
-        List<Konsultasi> otherKonsultations = konsultasiRepository.findByScheduleId(targetScheduleId)
-                .stream()
-                .filter(k -> !k.getId().equals(konsultasiId))
-                .collect(Collectors.toList());
-
-        boolean isAvailable = true;
-        for (Konsultasi k : otherKonsultations) {
-            if (!k.getStatus().equals("CANCELLED") && !k.getStatus().equals("DONE")) {
-
-                if (isTimeConflict(k.getScheduleDateTime(), dto.getNewScheduleDateTime())) {
-                    isAvailable = false;
-                    break;
-                }
-
-                if ("RESCHEDULED".equals(k.getStatus()) && k.getOriginalScheduleDateTime() != null) {
-                    if (isTimeConflict(k.getOriginalScheduleDateTime(), dto.getNewScheduleDateTime())) {
-                        isAvailable = false;
-                        break;
-                    }
-                }
-            }
-        }
-
-        if (!isAvailable) {
+        if (!scheduleService.isScheduleAvailableForDateTime(targetScheduleId, dto.getNewScheduleDateTime())) {
             throw new ScheduleException("The requested date and time are not available");
         }
+
+        LocalDateTime currentDateTime = konsultasi.getScheduleDateTime();
 
         initializeState(konsultasi);
 
         try {
-
             if (dto.getNewScheduleId() != null) {
                 konsultasi.setScheduleId(targetScheduleId);
             }
 
             konsultasi.setOriginalScheduleDateTime(currentDateTime);
-
             konsultasi.reschedule(dto.getNewScheduleDateTime());
 
             if (dto.getNotes() != null) {
@@ -198,9 +234,9 @@ public class KonsultasiServiceImpl implements KonsultasiService {
 
     @Override
     @Transactional
-    public KonsultasiResponseDto acceptReschedule(UUID konsultasiId, UUID caregiverId) {
+    public KonsultasiResponseDto acceptReschedule(UUID konsultasiId, UUID pacilianId) {
         Konsultasi konsultasi = findKonsultasiById(konsultasiId);
-        validateUserRoleAndOwnership(konsultasi, caregiverId, "CAREGIVER");
+        validateUserRoleAndOwnership(konsultasi, pacilianId, "PACILIAN");
 
         if (!"RESCHEDULED".equals(konsultasi.getStatus())) {
             throw new ScheduleException("Only rescheduled consultations can be accepted");
@@ -222,7 +258,7 @@ public class KonsultasiServiceImpl implements KonsultasiService {
     @Transactional
     public KonsultasiResponseDto rejectReschedule(UUID konsultasiId, UUID caregiverId) {
         Konsultasi konsultasi = findKonsultasiById(konsultasiId);
-        validateUserRoleAndOwnership(konsultasi, caregiverId, "CAREGIVER");
+        validateUserRoleAndOwnership(konsultasi, caregiverId, "PACILIAN");
 
         if (!"RESCHEDULED".equals(konsultasi.getStatus())) {
             throw new ScheduleException("Only rescheduled consultations can be rejected");
@@ -245,20 +281,26 @@ public class KonsultasiServiceImpl implements KonsultasiService {
     @Override
     public KonsultasiResponseDto getKonsultasiById(UUID konsultasiId, UUID userId, String role) {
         Konsultasi konsultasi = findKonsultasiById(konsultasiId);
-    
+
         validateUserRoleAndOwnership(konsultasi, userId, role);
-        
-        return convertToResponseDto(konsultasi);
+
+        return convertToResponseDtoByRole(konsultasi, role);
     }
 
     @Override
     public List<KonsultasiResponseDto> getKonsultasiByPacilianId(UUID pacilianId) {
-        return convertToDtoList(konsultasiRepository.findByPacilianId(pacilianId));
+        List<Konsultasi> konsultasiList = konsultasiRepository.findByPacilianId(pacilianId);
+        return konsultasiList.stream()
+                .map(k -> convertToResponseDtoByRole(k, "PACILIAN"))
+                .collect(Collectors.toList());
     }
 
     @Override
     public List<KonsultasiResponseDto> getKonsultasiByCaregiverId(UUID caregiverId) {
-        return convertToDtoList(konsultasiRepository.findByCaregiverId(caregiverId));
+        List<Konsultasi> konsultasiList = konsultasiRepository.findByCaregiverId(caregiverId);
+        return konsultasiList.stream()
+                .map(k -> convertToResponseDtoByRole(k, "CAREGIVER"))
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -304,7 +346,7 @@ public class KonsultasiServiceImpl implements KonsultasiService {
     }
 
     private Konsultasi buildNewKonsultasi(CreateKonsultasiDto dto, UUID pacilianId,
-                                          Schedule schedule, LocalDateTime scheduleDateTime) {
+            Schedule schedule, LocalDateTime scheduleDateTime) {
         Konsultasi konsultasi = Konsultasi.builder()
                 .scheduleId(dto.getScheduleId())
                 .caregiverId(schedule.getCaregiverId())
@@ -342,5 +384,57 @@ public class KonsultasiServiceImpl implements KonsultasiService {
                 .status(konsultasi.getStatus())
                 .lastUpdated(LocalDateTime.now())
                 .build();
+    }
+
+    private KonsultasiResponseDto convertToResponseDtoByRole(Konsultasi konsultasi, String role) {
+        try {
+            if ("CAREGIVER".equalsIgnoreCase(role)) {
+                CompletableFuture<PacilianPublicDto> pacilianFuture = userDataService
+                        .getPacilianByIdAsync(konsultasi.getPacilianId());
+                pacilianFuture.get();
+                return KonsultasiResponseDto.builder()
+                        .id(konsultasi.getId())
+                        .scheduleId(konsultasi.getScheduleId())
+                        .caregiverId(konsultasi.getCaregiverId())
+                        .pacilianId(konsultasi.getPacilianId())
+                        .scheduleDateTime(konsultasi.getScheduleDateTime())
+                        .notes(konsultasi.getNotes())
+                        .status(konsultasi.getStatus())
+                        .lastUpdated(LocalDateTime.now())
+                        .caregiverData(null)
+                        .pacilianData(pacilianFuture.get())
+                        .build();
+            } else {
+                CompletableFuture<CaregiverPublicDto> caregiverFuture = userDataService
+                        .getCaregiverByIdAsync(konsultasi.getCaregiverId());
+                caregiverFuture.get();
+                return KonsultasiResponseDto.builder()
+                        .id(konsultasi.getId())
+                        .scheduleId(konsultasi.getScheduleId())
+                        .caregiverId(konsultasi.getCaregiverId())
+                        .pacilianId(konsultasi.getPacilianId())
+                        .scheduleDateTime(konsultasi.getScheduleDateTime())
+                        .notes(konsultasi.getNotes())
+                        .status(konsultasi.getStatus())
+                        .lastUpdated(LocalDateTime.now())
+                        .caregiverData(caregiverFuture.get())
+                        .pacilianData(null)
+                        .build();
+            }
+        } catch (InterruptedException | ExecutionException e) {
+            Thread.currentThread().interrupt();
+            return KonsultasiResponseDto.builder()
+                    .id(konsultasi.getId())
+                    .scheduleId(konsultasi.getScheduleId())
+                    .caregiverId(konsultasi.getCaregiverId())
+                    .pacilianId(konsultasi.getPacilianId())
+                    .scheduleDateTime(konsultasi.getScheduleDateTime())
+                    .notes(konsultasi.getNotes())
+                    .status(konsultasi.getStatus())
+                    .lastUpdated(LocalDateTime.now())
+                    .caregiverData(null)
+                    .pacilianData(null)
+                    .build();
+        }
     }
 }

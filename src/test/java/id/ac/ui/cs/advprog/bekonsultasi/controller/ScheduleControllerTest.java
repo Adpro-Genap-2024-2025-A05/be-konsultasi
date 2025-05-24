@@ -7,6 +7,8 @@ import id.ac.ui.cs.advprog.bekonsultasi.dto.ScheduleResponseDto;
 import id.ac.ui.cs.advprog.bekonsultasi.dto.TokenVerificationResponseDto;
 import id.ac.ui.cs.advprog.bekonsultasi.enums.Role;
 import id.ac.ui.cs.advprog.bekonsultasi.exception.AuthenticationException;
+import id.ac.ui.cs.advprog.bekonsultasi.exception.ScheduleConflictException;
+import id.ac.ui.cs.advprog.bekonsultasi.exception.ScheduleException;
 import id.ac.ui.cs.advprog.bekonsultasi.service.ScheduleService;
 import id.ac.ui.cs.advprog.bekonsultasi.service.TokenVerificationService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -194,5 +196,261 @@ class ScheduleControllerTest {
         assertFalse(response.getBody().getData());
 
         verify(scheduleService).isScheduleAvailableForDateTime(scheduleId, dateTime);
+    }
+
+    @Test
+    void testCreateCaregiverSchedule() {
+        CreateScheduleDto dto = new CreateScheduleDto();
+        dto.setDay(DayOfWeek.MONDAY);
+        dto.setStartTime(LocalTime.of(10, 0));
+        dto.setEndTime(LocalTime.of(11, 0));
+
+        when(request.getHeader("Authorization")).thenReturn("Bearer token");
+        when(tokenVerificationService.verifyToken("token")).thenReturn(verificationResponseDto);
+        when(scheduleService.createSchedule(dto, caregiverId)).thenReturn(scheduleResponseDto);
+
+        ResponseEntity<ApiResponseDto<ScheduleResponseDto>> response =
+                scheduleController.createCaregiverSchedule(dto, request);
+
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        assertEquals(201, response.getBody().getStatus());
+        assertEquals("Created successfully", response.getBody().getMessage());
+        assertEquals(scheduleResponseDto, response.getBody().getData());
+    }
+
+    @Test
+    void testCreateCaregiverSchedule_InvalidRole() {
+        CreateScheduleDto dto = new CreateScheduleDto();
+        verificationResponseDto.setRole(Role.PACILIAN);
+
+        when(request.getHeader("Authorization")).thenReturn("Bearer token");
+        when(tokenVerificationService.verifyToken("token")).thenReturn(verificationResponseDto);
+
+        assertThrows(AuthenticationException.class, () ->
+                scheduleController.createCaregiverSchedule(dto, request));
+    }
+
+    @Test
+    void testUpdateCaregiverSchedule() {
+        CreateScheduleDto dto = new CreateScheduleDto();
+        dto.setDay(DayOfWeek.MONDAY);
+        dto.setStartTime(LocalTime.of(10, 0));
+        dto.setEndTime(LocalTime.of(11, 0));
+
+        when(request.getHeader("Authorization")).thenReturn("Bearer token");
+        when(tokenVerificationService.verifyToken("token")).thenReturn(verificationResponseDto);
+        when(scheduleService.updateSchedule(scheduleId, dto, caregiverId)).thenReturn(scheduleResponseDto);
+
+        ResponseEntity<ApiResponseDto<ScheduleResponseDto>> response =
+                scheduleController.updateCaregiverSchedule(scheduleId, dto, request);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(200, response.getBody().getStatus());
+        assertEquals("Schedule updated successfully", response.getBody().getMessage());
+        assertEquals(scheduleResponseDto, response.getBody().getData());
+    }
+
+    @Test
+    void testDeleteCaregiverSchedule() {
+        when(request.getHeader("Authorization")).thenReturn("Bearer token");
+        when(tokenVerificationService.verifyToken("token")).thenReturn(verificationResponseDto);
+
+        ResponseEntity<ApiResponseDto<Object>> response =
+                scheduleController.deleteCaregiverSchedule(scheduleId, request);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(200, response.getBody().getStatus());
+        assertEquals("Schedule deleted successfully", response.getBody().getMessage());
+        assertNull(response.getBody().getData());
+
+        verify(scheduleService).deleteSchedule(scheduleId, caregiverId);
+    }
+
+    @Test
+    void testGetCurrentCaregiverSchedules() {
+        List<ScheduleResponseDto> schedules = List.of(scheduleResponseDto);
+
+        when(request.getHeader("Authorization")).thenReturn("Bearer token");
+        when(tokenVerificationService.verifyToken("token")).thenReturn(verificationResponseDto);
+        when(scheduleService.getCaregiverSchedules(caregiverId)).thenReturn(schedules);
+
+        ResponseEntity<ApiResponseDto<List<ScheduleResponseDto>>> response =
+                scheduleController.getCurrentCaregiverSchedules(request);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(200, response.getBody().getStatus());
+        assertEquals("Retrieved caregiver schedules", response.getBody().getMessage());
+        assertEquals(schedules, response.getBody().getData());
+    }
+
+    @Test
+    void testGetCaregiverSchedulesByIdParam() {
+        List<ScheduleResponseDto> schedules = List.of(scheduleResponseDto);
+
+        when(request.getHeader("Authorization")).thenReturn("Bearer token");
+        when(tokenVerificationService.verifyToken("token")).thenReturn(verificationResponseDto);
+        when(scheduleService.getCaregiverSchedules(caregiverId)).thenReturn(schedules);
+
+        ResponseEntity<ApiResponseDto<List<ScheduleResponseDto>>> response =
+                scheduleController.getCaregiverSchedulesByIdParam(caregiverId, request);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(200, response.getBody().getStatus());
+        assertEquals("Retrieved caregiver schedules", response.getBody().getMessage());
+        assertEquals(schedules, response.getBody().getData());
+    }
+
+    @Test
+    void testCreateCaregiverSchedule_ValidToken() {
+        CreateScheduleDto dto = new CreateScheduleDto();
+        dto.setDay(DayOfWeek.MONDAY);
+        dto.setStartTime(LocalTime.of(10, 0));
+        dto.setEndTime(LocalTime.of(11, 0));
+
+        when(request.getHeader("Authorization")).thenReturn("Bearer valid.token");
+        when(tokenVerificationService.verifyToken("valid.token")).thenReturn(verificationResponseDto);
+        when(scheduleService.createSchedule(dto, caregiverId)).thenReturn(scheduleResponseDto);
+
+        ResponseEntity<ApiResponseDto<ScheduleResponseDto>> response =
+                scheduleController.createCaregiverSchedule(dto, request);
+
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        verify(tokenVerificationService).verifyToken("valid.token");
+    }
+
+    @Test
+    void testCreateCaregiverSchedule_MissingToken() {
+        CreateScheduleDto dto = new CreateScheduleDto();
+
+        when(request.getHeader("Authorization")).thenReturn(null);
+
+        assertThrows(AuthenticationException.class, () ->
+                scheduleController.createCaregiverSchedule(dto, request));
+    }
+
+    @Test
+    void testCreateCaregiverSchedule_InvalidTokenFormat() {
+        CreateScheduleDto dto = new CreateScheduleDto();
+
+        when(request.getHeader("Authorization")).thenReturn("InvalidTokenFormat");
+
+        assertThrows(AuthenticationException.class, () ->
+                scheduleController.createCaregiverSchedule(dto, request));
+    }
+
+    @Test
+    void testHandleIllegalArgumentException() {
+        IllegalArgumentException ex = new IllegalArgumentException("Test error");
+        ResponseEntity<ApiResponseDto<Object>> response =
+                scheduleController.handleIllegalArgumentException(ex);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals(400, response.getBody().getStatus());
+        assertEquals("Test error", response.getBody().getMessage());
+    }
+
+    @Test
+    void testHandleScheduleConflictException() {
+        ScheduleConflictException ex = new ScheduleConflictException("Conflict error");
+        ResponseEntity<ApiResponseDto<Object>> response =
+                scheduleController.handleScheduleConflictException(ex);
+
+        assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+        assertEquals(409, response.getBody().getStatus());
+        assertEquals("Conflict error", response.getBody().getMessage());
+    }
+
+    @Test
+    void testHandleAuthenticationException() {
+        AuthenticationException ex = new AuthenticationException("Auth error");
+        ResponseEntity<ApiResponseDto<Object>> response =
+                scheduleController.handleAuthenticationException(ex);
+
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+        assertEquals(401, response.getBody().getStatus());
+        assertEquals("Auth error", response.getBody().getMessage());
+    }
+
+    @Test
+    void testHandleScheduleException() {
+        ScheduleException ex = new ScheduleException("Schedule error");
+        ResponseEntity<ApiResponseDto<Object>> response =
+                scheduleController.handleScheduleException(ex);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals(400, response.getBody().getStatus());
+        assertEquals("Schedule error", response.getBody().getMessage());
+    }
+
+    @Test
+    void testUpdateCaregiverSchedule_Success() {
+        CreateScheduleDto dto = new CreateScheduleDto();
+        dto.setDay(DayOfWeek.MONDAY);
+        dto.setStartTime(LocalTime.of(10, 0));
+        dto.setEndTime(LocalTime.of(11, 0));
+
+        when(request.getHeader("Authorization")).thenReturn("Bearer valid.token");
+        when(tokenVerificationService.verifyToken("valid.token")).thenReturn(verificationResponseDto);
+        when(scheduleService.updateSchedule(scheduleId, dto, caregiverId)).thenReturn(scheduleResponseDto);
+
+        ResponseEntity<ApiResponseDto<ScheduleResponseDto>> response =
+                scheduleController.updateCaregiverSchedule(scheduleId, dto, request);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(200, response.getBody().getStatus());
+        assertEquals("Schedule updated successfully", response.getBody().getMessage());
+        assertEquals(scheduleResponseDto, response.getBody().getData());
+    }
+
+    @Test
+    void testUpdateCaregiverSchedule_InvalidRole() {
+        CreateScheduleDto dto = new CreateScheduleDto();
+        verificationResponseDto.setRole(Role.PACILIAN);
+
+        when(request.getHeader("Authorization")).thenReturn("Bearer token");
+        when(tokenVerificationService.verifyToken("token")).thenReturn(verificationResponseDto);
+
+        assertThrows(AuthenticationException.class, () ->
+                scheduleController.updateCaregiverSchedule(scheduleId, dto, request));
+    }
+
+    @Test
+    void testDeleteCaregiverSchedule_NonCaregiverRole() {
+
+        TokenVerificationResponseDto nonCaregiverVerification = TokenVerificationResponseDto.builder()
+                .valid(true)
+                .userId(UUID.randomUUID().toString())
+                .role(Role.PACILIAN)
+                .build();
+
+        when(request.getHeader("Authorization")).thenReturn("Bearer token");
+        when(tokenVerificationService.verifyToken("token")).thenReturn(nonCaregiverVerification);
+
+        AuthenticationException exception = assertThrows(AuthenticationException.class, () ->
+                scheduleController.deleteCaregiverSchedule(scheduleId, request));
+
+        assertEquals("Only caregivers can delete schedules", exception.getMessage());
+
+        verify(scheduleService, never()).deleteSchedule(any(), any());
+    }
+
+    @Test
+    void testGetCurrentCaregiverSchedules_NonCaregiverRole() {
+
+        TokenVerificationResponseDto nonCaregiverVerification = TokenVerificationResponseDto.builder()
+                .valid(true)
+                .userId(UUID.randomUUID().toString())
+                .role(Role.PACILIAN)
+                .build();
+
+        when(request.getHeader("Authorization")).thenReturn("Bearer token");
+        when(tokenVerificationService.verifyToken("token")).thenReturn(nonCaregiverVerification);
+
+        AuthenticationException exception = assertThrows(AuthenticationException.class, () ->
+                scheduleController.getCurrentCaregiverSchedules(request));
+
+        assertEquals("Only caregivers can view their schedules", exception.getMessage());
+
+        verify(scheduleService, never()).getCaregiverSchedules(any());
     }
 }

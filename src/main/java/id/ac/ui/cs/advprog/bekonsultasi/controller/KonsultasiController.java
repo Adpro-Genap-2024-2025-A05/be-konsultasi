@@ -71,14 +71,39 @@ public class KonsultasiController {
 
         return ResponseEntity.ok(ApiResponseDto.success(200, "Consultation completed successfully", response));
     }
+    @PutMapping(path = "/{konsultasiId}/update-request", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> updateKonsultasiRequest(
+            @PathVariable UUID konsultasiId,
+            @Valid @RequestBody UpdateKonsultasiRequestDto dto,
+            HttpServletRequest request) {
+        TokenVerificationResponseDto verification = verifyTokenAndRole(request, Role.PACILIAN, "Only pacilians can update their consultation requests");
+        UUID pacilianId = UUID.fromString(verification.getUserId());
+        
+        KonsultasiResponseDto response = konsultasiService.updateKonsultasiRequest(konsultasiId, dto, pacilianId);
+
+        return ResponseEntity.ok(ApiResponseDto.success(200, "Consultation request updated successfully", response));
+    }
+
+    @PostMapping(path = "/{konsultasiId}/reschedule", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> rescheduleKonsultasi(
+            @PathVariable UUID konsultasiId,
+            @Valid @RequestBody RescheduleKonsultasiDto dto,
+            HttpServletRequest request) {
+        TokenVerificationResponseDto verification = verifyTokenAndRole(request, Role.CAREGIVER, "Only caregivers can reschedule consultations");
+        UUID caregiverId = UUID.fromString(verification.getUserId());
+
+        KonsultasiResponseDto response = konsultasiService.rescheduleKonsultasi(konsultasiId, dto, caregiverId);
+
+        return ResponseEntity.ok(ApiResponseDto.success(200, "Consultation rescheduled successfully", response));
+    }
 
     @PostMapping(path = "/{konsultasiId}/accept-reschedule", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> acceptReschedule(
             @PathVariable UUID konsultasiId,
             HttpServletRequest request) {
-        TokenVerificationResponseDto verification = verifyTokenAndRole(request, Role.CAREGIVER, "Only caregivers can accept rescheduled consultations");
-        UUID caregiverId = UUID.fromString(verification.getUserId());
-        KonsultasiResponseDto response = konsultasiService.acceptReschedule(konsultasiId, caregiverId);
+        TokenVerificationResponseDto verification = verifyTokenAndRole(request, Role.PACILIAN, "Only pacilians can accept reschedule proposals");
+        UUID pacilianId = UUID.fromString(verification.getUserId());
+        KonsultasiResponseDto response = konsultasiService.acceptReschedule(konsultasiId, pacilianId);
 
         return ResponseEntity.ok(ApiResponseDto.success(200, "Rescheduled consultation accepted", response));
     }
@@ -87,25 +112,11 @@ public class KonsultasiController {
     public ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> rejectReschedule(
             @PathVariable UUID konsultasiId,
             HttpServletRequest request) {
-        TokenVerificationResponseDto verification = verifyTokenAndRole(request, Role.CAREGIVER, "Only caregivers can reject rescheduled consultations");
-        UUID caregiverId = UUID.fromString(verification.getUserId());
-        KonsultasiResponseDto response = konsultasiService.rejectReschedule(konsultasiId, caregiverId);
+        TokenVerificationResponseDto verification = verifyTokenAndRole(request, Role.PACILIAN, "Only pacilians can reject reschedule proposals");
+        UUID pacilianId = UUID.fromString(verification.getUserId());
+        KonsultasiResponseDto response = konsultasiService.rejectReschedule(konsultasiId, pacilianId);
 
         return ResponseEntity.ok(ApiResponseDto.success(200, "Rescheduled consultation rejected", response));
-    }
-
-    @PostMapping(path = "/{konsultasiId}/reschedule", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> rescheduleKonsultasi(
-            @PathVariable UUID konsultasiId,
-            @Valid @RequestBody RescheduleKonsultasiDto dto,
-            HttpServletRequest request) {
-        TokenVerificationResponseDto verification = verifyToken(request);
-        UUID userId = UUID.fromString(verification.getUserId());
-        String role = verification.getRole().name();
-
-        KonsultasiResponseDto response = konsultasiService.rescheduleKonsultasi(konsultasiId, dto, userId, role);
-
-        return ResponseEntity.ok(ApiResponseDto.success(200, "Consultation rescheduled successfully", response));
     }
 
     @GetMapping(path = "/{konsultasiId}", produces = MediaType.APPLICATION_JSON_VALUE)

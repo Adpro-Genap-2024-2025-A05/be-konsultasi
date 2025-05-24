@@ -36,7 +36,8 @@ public class RescheduledState implements KonsultasiState {
     public void reject(Konsultasi konsultasi) {
         if (konsultasi.getOriginalScheduleDateTime() != null) {
             konsultasi.setScheduleDateTime(konsultasi.getOriginalScheduleDateTime());
+            konsultasi.setOriginalScheduleDateTime(null);
         }
-        konsultasi.setState(new RequestedState());
+        konsultasi.setState(new ConfirmedState());
     }
 }

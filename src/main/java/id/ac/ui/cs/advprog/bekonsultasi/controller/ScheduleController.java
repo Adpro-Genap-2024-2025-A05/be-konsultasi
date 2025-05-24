@@ -82,7 +82,7 @@ public class ScheduleController {
         }
 
         UUID caregiverId = UUID.fromString(verification.getUserId());
-        scheduleService.deleteSchedule(scheduleId, caregiverId);
+        scheduleService.deleteScheduleAsync(scheduleId, caregiverId);
 
         return ResponseEntity.ok(ApiResponseDto.success(200, "Schedule deleted successfully", null));
     }
