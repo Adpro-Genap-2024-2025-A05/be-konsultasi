@@ -17,7 +17,6 @@ import java.util.UUID;
 import java.util.function.Function;
 
 import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.Timer;
 
 import lombok.RequiredArgsConstructor;
 
@@ -31,58 +30,57 @@ public class TokenVerificationService {
     private final Counter tokenVerificationCounter;
     private final Counter tokenVerificationFailureCounter;
     private final Counter authenticationErrorCounter;
-    private final Timer tokenVerificationTimer;
     
     public TokenVerificationResponseDto verifyToken(String token) {
         tokenVerificationCounter.increment();
         
-        return tokenVerificationTimer.record(() -> {
-            try {
-                if (isTokenExpired(token)) {
-                    tokenVerificationFailureCounter.increment();
-                    throw new AuthenticationException("Token has expired");
-                }
-
-                Claims claims = extractAllClaims(token);
-
-                String email = extractUsername(token);
-                String userId = claims.get("id", String.class);
-                String roleStr = claims.get("role", String.class);
-                String userName = claims.get("name", String.class);
-
-                if (userId == null || roleStr == null) {
-                    tokenVerificationFailureCounter.increment();
-                    authenticationErrorCounter.increment();
-                    throw new AuthenticationException("Invalid token: missing required claims");
-                }
-
-                if (!Role.contains(roleStr)) {
-                    tokenVerificationFailureCounter.increment();
-                    authenticationErrorCounter.increment();
-                    throw new AuthenticationException("Invalid role in token: " + roleStr);
-                }
-
-                Role role = Role.valueOf(roleStr);
-                long expiresIn = getRemainingTime(token);
-
-                return TokenVerificationResponseDto.builder()
-                        .valid(true)
-                        .userId(userId)
-                        .email(email)
-                        .userName(userName)
-                        .role(role)
-                        .expiresIn(expiresIn)
-                        .build();
-
-            } catch (ExpiredJwtException e) {
+        try {
+            if (isTokenExpired(token)) {
                 tokenVerificationFailureCounter.increment();
-                throw new AuthenticationException("Token has expired");
-            } catch (Exception e) {
+                throw new AuthenticationException("Error verifying token: Token has expired");
+            }
+
+            Claims claims = extractAllClaims(token);
+
+            String email = extractUsername(token);
+            String userId = claims.get("id", String.class);
+            String roleStr = claims.get("role", String.class);
+            String userName = claims.get("name", String.class);
+
+            if (userId == null || roleStr == null) {
                 tokenVerificationFailureCounter.increment();
                 authenticationErrorCounter.increment();
-                throw new AuthenticationException("Error verifying token: " + e.getMessage());
+                throw new AuthenticationException("Error verifying token: Invalid token: missing required claims");
             }
-        });
+
+            if (!Role.contains(roleStr)) {
+                tokenVerificationFailureCounter.increment();
+                authenticationErrorCounter.increment();
+                throw new AuthenticationException("Error verifying token: Invalid role in token: " + roleStr);
+            }
+
+            Role role = Role.valueOf(roleStr);
+            long expiresIn = getRemainingTime(token);
+
+            return TokenVerificationResponseDto.builder()
+                    .valid(true)
+                    .userId(userId)
+                    .email(email)
+                    .userName(userName)
+                    .role(role)
+                    .expiresIn(expiresIn)
+                    .build();
+
+        } catch (ExpiredJwtException e) {
+            tokenVerificationFailureCounter.increment();
+            throw new AuthenticationException("Error verifying token: Token has expired");
+        } catch (AuthenticationException e) {
+            throw e;
+        } catch (Exception e) {
+            tokenVerificationFailureCounter.increment();
+            authenticationErrorCounter.increment();
+            throw new AuthenticationException("Error verifying token: " + e.getMessage());
+        }
     }
     
     public UUID getUserIdFromToken(String token) {

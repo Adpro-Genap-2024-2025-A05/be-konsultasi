@@ -2,7 +2,6 @@ package id.ac.ui.cs.advprog.bekonsultasi.config;
 
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Timer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -108,13 +107,6 @@ public class MetricsConfig {
     }
 
     @Bean
-    public Timer userDataFetchTimer(MeterRegistry meterRegistry) {
-        return Timer.builder("data.user.fetch.duration")
-                .description("Time taken to fetch user data from external service")
-                .register(meterRegistry);
-    }
-
-    @Bean
     public Counter userDataFetchErrorCounter(MeterRegistry meterRegistry) {
         return Counter.builder("data.user.fetch.error.total")
                 .description("Total number of errors fetching user data")
@@ -134,13 +126,6 @@ public class MetricsConfig {
                 .description("Total number of available schedules requests")
                 .register(meterRegistry);
     }
-
-    @Bean
-    public Timer availableSchedulesQueryTimer(MeterRegistry meterRegistry) {
-        return Timer.builder("data.available.schedules.query.duration")
-                .description("Time taken to query available schedules")
-                .register(meterRegistry);
-    }
     
     @Bean
     public Counter tokenVerificationCounter(MeterRegistry meterRegistry) {
@@ -157,13 +142,6 @@ public class MetricsConfig {
     }
 
     @Bean
-    public Timer tokenVerificationTimer(MeterRegistry meterRegistry) {
-        return Timer.builder("auth.token.verification.duration")
-                .description("Time taken for token verification")
-                .register(meterRegistry);
-    }
-
-    @Bean
     public Counter authenticationErrorCounter(MeterRegistry meterRegistry) {
         return Counter.builder("auth.authentication.error.total")
                 .description("Total number of authentication errors")
@@ -174,13 +152,6 @@ public class MetricsConfig {
     public Counter unauthorizedAccessCounter(MeterRegistry meterRegistry) {
         return Counter.builder("auth.unauthorized.access.total")
                 .description("Total number of unauthorized access attempts")
-                .register(meterRegistry);
-    }
-    
-    @Bean
-    public Timer databaseQueryTimer(MeterRegistry meterRegistry) {
-        return Timer.builder("database.query.duration")
-                .description("Time taken for database queries")
                 .register(meterRegistry);
     }
 
@@ -211,13 +182,6 @@ public class MetricsConfig {
                 .description("Total number of HTTP errors (4xx, 5xx)")
                 .register(meterRegistry);
     }
-
-    @Bean
-    public Timer httpRequestTimer(MeterRegistry meterRegistry) {
-        return Timer.builder("http.request.duration")
-                .description("HTTP request processing time")
-                .register(meterRegistry);
-    }
     
     @Bean
     public Counter asyncOperationCounter(MeterRegistry meterRegistry) {
@@ -232,13 +196,6 @@ public class MetricsConfig {
                 .description("Total number of failed async operations")
                 .register(meterRegistry);
     }
-
-    @Bean
-    public Timer asyncOperationTimer(MeterRegistry meterRegistry) {
-        return Timer.builder("async.operation.duration")
-                .description("Time taken for async operations")
-                .register(meterRegistry);
-    }
     
     @Bean
     public Counter externalServiceCallCounter(MeterRegistry meterRegistry) {
@@ -251,13 +208,6 @@ public class MetricsConfig {
     public Counter externalServiceErrorCounter(MeterRegistry meterRegistry) {
         return Counter.builder("external.service.error.total")
                 .description("Total number of external service errors")
-                .register(meterRegistry);
-    }
-
-    @Bean
-    public Timer externalServiceCallTimer(MeterRegistry meterRegistry) {
-        return Timer.builder("external.service.call.duration")
-                .description("Time taken for external service calls")
                 .register(meterRegistry);
     }
 }

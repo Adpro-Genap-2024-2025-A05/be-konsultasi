@@ -177,7 +177,7 @@
             "type": "prometheus",
             "uid": "Prometheus"
           },
-          "expr": "rate(konsultasi_total[5m])",
+          "expr": "rate(konsultasi_created_total[5m])",
           "legendFormat": "Created",
           "refId": "A"
         },
@@ -459,27 +459,16 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "thresholds"
+            "mode": "palette-classic"
           },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 0.1
-              },
-              {
-                "color": "red",
-                "value": 0.5
-              }
-            ]
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            }
           },
-          "unit": "s"
+          "mappings": []
         },
         "overrides": []
       },
@@ -491,7 +480,11 @@
       },
       "id": 4,
       "options": {
-        "orientation": "auto",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "pieType": "pie",
         "reduceOptions": {
           "values": false,
           "calcs": [
@@ -499,23 +492,42 @@
           ],
           "fields": ""
         },
-        "showThresholdLabels": false,
-        "showThresholdMarkers": true
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
       },
-      "pluginVersion": "9.0.0",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
             "uid": "Prometheus"
           },
-          "expr": "histogram_quantile(0.95, sum(rate(konsultasi_creation_duration_seconds_bucket[5m])) by (le))",
-          "legendFormat": "95th Percentile",
+          "expr": "konsultasi_errors_total",
+          "legendFormat": "Konsultasi Errors",
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "expr": "konsultasi_schedule_conflict_total",
+          "legendFormat": "Schedule Conflicts",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "expr": "konsultasi_state_transition_error_total",
+          "legendFormat": "State Transition Errors",
+          "refId": "C"
         }
       ],
-      "title": "Consultation Creation Time (95th Percentile)",
-      "type": "gauge"
+      "title": "Total Error Distribution",
+      "type": "piechart"
     },
     {
       "collapsed": false,
@@ -1083,27 +1095,16 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "thresholds"
+            "mode": "palette-classic"
           },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 0.1
-              },
-              {
-                "color": "red",
-                "value": 0.5
-              }
-            ]
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            }
           },
-          "unit": "s"
+          "mappings": []
         },
         "overrides": []
       },
@@ -1115,7 +1116,11 @@
       },
       "id": 9,
       "options": {
-        "orientation": "auto",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "pieType": "pie",
         "reduceOptions": {
           "values": false,
           "calcs": [
@@ -1123,23 +1128,51 @@
           ],
           "fields": ""
         },
-        "showThresholdLabels": false,
-        "showThresholdMarkers": true
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
       },
-      "pluginVersion": "9.0.0",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
             "uid": "Prometheus"
           },
-          "expr": "histogram_quantile(0.95, sum(rate(data_user_fetch_duration_seconds_bucket[5m])) by (le))",
-          "legendFormat": "95th Percentile",
+          "expr": "data_user_fetch_error_total",
+          "legendFormat": "Data Fetch Errors",
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "expr": "data_user_fallback_total",
+          "legendFormat": "Fallback Used",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "expr": "auth_authentication_error_total",
+          "legendFormat": "Auth Errors",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "expr": "auth_token_verification_failure_total",
+          "legendFormat": "Token Failures",
+          "refId": "D"
         }
       ],
-      "title": "User Data Fetch Time (95th Percentile)",
-      "type": "gauge"
+      "title": "Service Error Distribution",
+      "type": "piechart"
     },
     {
       "datasource": {
@@ -1149,27 +1182,16 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "thresholds"
+            "mode": "palette-classic"
           },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 0.1
-              },
-              {
-                "color": "red",
-                "value": 0.5
-              }
-            ]
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            }
           },
-          "unit": "s"
+          "mappings": []
         },
         "overrides": []
       },
@@ -1181,7 +1203,11 @@
       },
       "id": 10,
       "options": {
-        "orientation": "auto",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "pieType": "pie",
         "reduceOptions": {
           "values": false,
           "calcs": [
@@ -1189,23 +1215,51 @@
           ],
           "fields": ""
         },
-        "showThresholdLabels": false,
-        "showThresholdMarkers": true
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
       },
-      "pluginVersion": "9.0.0",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
             "uid": "Prometheus"
           },
-          "expr": "histogram_quantile(0.95, sum(rate(auth_token_verification_duration_seconds_bucket[5m])) by (le))",
-          "legendFormat": "95th Percentile",
+          "expr": "data_caregiver_request_total",
+          "legendFormat": "Caregiver Requests",
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "expr": "data_pacilian_request_total",
+          "legendFormat": "Pacilian Requests",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "expr": "data_available_schedules_request_total",
+          "legendFormat": "Schedule Requests",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "Prometheus"
+          },
+          "expr": "auth_token_verification_total",
+          "legendFormat": "Token Verifications",
+          "refId": "D"
         }
       ],
-      "title": "Token Verification Time (95th Percentile)",
-      "type": "gauge"
+      "title": "Total Service Operations",
+      "type": "piechart"
     },
     {
       "collapsed": false,

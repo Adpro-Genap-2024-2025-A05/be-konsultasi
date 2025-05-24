@@ -21,7 +21,6 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.Timer;
 
 class TokenVerificationServiceTest {
 
@@ -35,8 +34,7 @@ class TokenVerificationServiceTest {
         tokenVerificationService = new TokenVerificationService(
                 mock(Counter.class),
                 mock(Counter.class),
-                mock(Counter.class),
-                mock(Timer.class)
+                mock(Counter.class)
         );
         ReflectionTestUtils.setField(tokenVerificationService, "secretKey", testSecret);
     }

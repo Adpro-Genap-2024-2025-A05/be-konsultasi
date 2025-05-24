@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.UUID;
 
 import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.Timer;
 
 @RestController
 @RequestMapping("/api/data")
@@ -21,7 +20,6 @@ import io.micrometer.core.instrument.Timer;
 public class DataController {
     private final ScheduleService scheduleService;
     private final Counter availableSchedulesRequestCounter;
-    private final Timer availableSchedulesQueryTimer;
 
     @GetMapping(path = "/caregiver/{caregiverId}", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResponseDto<List<ScheduleResponseDto>>> getCaregiverAvailableSchedules(
@@ -29,24 +27,22 @@ public class DataController {
         
         availableSchedulesRequestCounter.increment();
         
-        return availableSchedulesQueryTimer.record(() -> {
-            try {
-                UUID caregiverUuid = UUID.fromString(caregiverId);
-                List<ScheduleResponseDto> schedules = scheduleService.getAvailableSchedulesByCaregiver(caregiverUuid);
+        try {
+            UUID caregiverUuid = UUID.fromString(caregiverId);
+            List<ScheduleResponseDto> schedules = scheduleService.getAvailableSchedulesByCaregiver(caregiverUuid);
 
-                return ResponseEntity.ok(
-                    ApiResponseDto.success(200,
-                        "Available schedules retrieved successfully",
-                        schedules)
-                );
-            } catch (IllegalArgumentException e) {
-                return ResponseEntity.badRequest()
-                    .body(ApiResponseDto.error(400, "Invalid caregiver ID format"));
-            } catch (Exception e) {
-                return ResponseEntity.status(500)
-                    .body(ApiResponseDto.error(500, "Error retrieving schedules"));
-            }
-        });
+            return ResponseEntity.ok(
+                ApiResponseDto.success(200,
+                    "Available schedules retrieved successfully",
+                    schedules)
+            );
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
+                .body(ApiResponseDto.error(400, "Invalid caregiver ID format"));
+        } catch (Exception e) {
+            return ResponseEntity.status(500)
+                .body(ApiResponseDto.error(500, "Error retrieving schedules"));
+        }
     }
 
     @GetMapping(path = "/available", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -56,24 +52,22 @@ public class DataController {
         availableSchedulesRequestCounter.increment();
         
         try {
-            return availableSchedulesQueryTimer.recordCallable(() -> {
-                List<ScheduleResponseDto> schedules;
-                
-                if (caregiverIds != null && !caregiverIds.isEmpty()) {
-                    List<UUID> uuidList = caregiverIds.stream()
-                        .map(UUID::fromString)
-                        .toList();
-                    schedules = scheduleService.getAvailableSchedulesForCaregivers(uuidList);
-                } else {
-                    schedules = List.of();
-                }
-                
-                return ResponseEntity.ok(
-                    ApiResponseDto.success(200, 
-                        "Available schedules retrieved successfully", 
-                        schedules)
-                );
-            });
+            List<ScheduleResponseDto> schedules;
+            
+            if (caregiverIds != null && !caregiverIds.isEmpty()) {
+                List<UUID> uuidList = caregiverIds.stream()
+                    .map(UUID::fromString)
+                    .toList();
+                schedules = scheduleService.getAvailableSchedulesForCaregivers(uuidList);
+            } else {
+                schedules = List.of();
+            }
+            
+            return ResponseEntity.ok(
+                ApiResponseDto.success(200, 
+                    "Available schedules retrieved successfully", 
+                    schedules)
+            );
         } catch (Exception e) {
             return ResponseEntity.status(500)
                 .body(ApiResponseDto.error(500, "Error retrieving available schedules"));

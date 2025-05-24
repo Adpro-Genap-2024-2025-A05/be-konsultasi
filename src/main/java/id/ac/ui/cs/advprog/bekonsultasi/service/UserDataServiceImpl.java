@@ -15,7 +15,6 @@ import org.springframework.web.client.RestTemplate;
 import id.ac.ui.cs.advprog.bekonsultasi.enums.Speciality;
 
 import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.Timer;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -33,7 +32,6 @@ public class UserDataServiceImpl implements UserDataService {
     private final Counter pacilianDataRequestCounter;
     private final Counter userDataFetchErrorCounter;
     private final Counter userDataFallbackCounter;
-    private final Timer userDataFetchTimer;
 
     @Override
     @Async
@@ -64,32 +62,23 @@ public class UserDataServiceImpl implements UserDataService {
         caregiverDataRequestCounter.increment();
         
         try {
-            return userDataFetchTimer.recordCallable(() -> {
-                try {
-                    String url = authServiceUrl + "/data/caregiver/" + caregiverId.toString();
-                    
-                    ResponseEntity<ApiResponseDto<CaregiverPublicDto>> response = restTemplate.exchange(
-                        url,
-                        HttpMethod.GET,
-                        null,
-                        new ParameterizedTypeReference<ApiResponseDto<CaregiverPublicDto>>() {}
-                    );
-                    
-                    if (response.getBody() != null && response.getBody().getData() != null) {
-                        return response.getBody().getData();
-                    }
-                    
-                    log.warn("No caregiver data found for ID: {}", caregiverId);
-                    userDataFallbackCounter.increment();
-                    return createDefaultCaregiver(caregiverId);
-                    
-                } catch (Exception e) {
-                    userDataFetchErrorCounter.increment();
-                    log.error("Failed to fetch caregiver data for ID: {}", caregiverId, e);
-                    userDataFallbackCounter.increment();
-                    return createDefaultCaregiver(caregiverId);
-                }
-            });
+            String url = authServiceUrl + "/data/caregiver/" + caregiverId.toString();
+            
+            ResponseEntity<ApiResponseDto<CaregiverPublicDto>> response = restTemplate.exchange(
+                url,
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<ApiResponseDto<CaregiverPublicDto>>() {}
+            );
+            
+            if (response.getBody() != null && response.getBody().getData() != null) {
+                return response.getBody().getData();
+            }
+            
+            log.warn("No caregiver data found for ID: {}", caregiverId);
+            userDataFallbackCounter.increment();
+            return createDefaultCaregiver(caregiverId);
+            
         } catch (Exception e) {
             userDataFetchErrorCounter.increment();
             log.error("Failed to fetch caregiver data for ID: {}", caregiverId, e);
@@ -103,32 +92,23 @@ public class UserDataServiceImpl implements UserDataService {
         pacilianDataRequestCounter.increment();
         
         try {
-            return userDataFetchTimer.recordCallable(() -> {
-                try {
-                    String url = authServiceUrl + "/data/pacilian/" + pacilianId.toString();
-                    
-                    ResponseEntity<ApiResponseDto<PacilianPublicDto>> response = restTemplate.exchange(
-                        url,
-                        HttpMethod.GET,
-                        null,
-                        new ParameterizedTypeReference<ApiResponseDto<PacilianPublicDto>>() {}
-                    );
-                    
-                    if (response.getBody() != null && response.getBody().getData() != null) {
-                        return response.getBody().getData();
-                    }
-                    
-                    log.warn("No pacilian data found for ID: {}", pacilianId);
-                    userDataFallbackCounter.increment();
-                    return createDefaultPacilian(pacilianId);
-                    
-                } catch (Exception e) {
-                    userDataFetchErrorCounter.increment();
-                    log.error("Failed to fetch pacilian data for ID: {}", pacilianId, e);
-                    userDataFallbackCounter.increment();
-                    return createDefaultPacilian(pacilianId);
-                }
-            });
+            String url = authServiceUrl + "/data/pacilian/" + pacilianId.toString();
+            
+            ResponseEntity<ApiResponseDto<PacilianPublicDto>> response = restTemplate.exchange(
+                url,
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<ApiResponseDto<PacilianPublicDto>>() {}
+            );
+            
+            if (response.getBody() != null && response.getBody().getData() != null) {
+                return response.getBody().getData();
+            }
+            
+            log.warn("No pacilian data found for ID: {}", pacilianId);
+            userDataFallbackCounter.increment();
+            return createDefaultPacilian(pacilianId);
+            
         } catch (Exception e) {
             userDataFetchErrorCounter.increment();
             log.error("Failed to fetch pacilian data for ID: {}", pacilianId, e);
