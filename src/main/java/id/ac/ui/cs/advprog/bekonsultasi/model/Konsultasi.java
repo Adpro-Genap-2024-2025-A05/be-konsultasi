@@ -46,12 +46,30 @@ public class Konsultasi {
     @Column(nullable = false)
     private String status;
 
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @Column(name = "last_updated", nullable = false)
+    private LocalDateTime lastUpdated;
+
     @PrePersist
     public void onCreate() {
+        LocalDateTime now = LocalDateTime.now();
+        if (createdAt == null) {
+            createdAt = now;
+        }
+        if (lastUpdated == null) {
+            lastUpdated = now;
+        }
         if (status == null) {
             status = "REQUESTED";
             state = new RequestedState();
         }
+    }
+
+    @PreUpdate
+    public void onUpdate() {
+        lastUpdated = LocalDateTime.now();
     }
 
     public void setState(KonsultasiState state) {
@@ -78,7 +96,7 @@ public class Konsultasi {
     public LocalDateTime getOriginalScheduleDateTime() {
         return originalScheduleDateTime;
     }
-    
+
     public void setOriginalScheduleDateTime(LocalDateTime originalScheduleDateTime) {
         this.originalScheduleDateTime = originalScheduleDateTime;
     }

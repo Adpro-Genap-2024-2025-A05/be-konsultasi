@@ -382,7 +382,7 @@ public class KonsultasiServiceImpl implements KonsultasiService {
                 .scheduleDateTime(konsultasi.getScheduleDateTime())
                 .notes(konsultasi.getNotes())
                 .status(konsultasi.getStatus())
-                .lastUpdated(LocalDateTime.now())
+                .lastUpdated(konsultasi.getLastUpdated())
                 .build();
     }
 
@@ -400,7 +400,7 @@ public class KonsultasiServiceImpl implements KonsultasiService {
                         .scheduleDateTime(konsultasi.getScheduleDateTime())
                         .notes(konsultasi.getNotes())
                         .status(konsultasi.getStatus())
-                        .lastUpdated(LocalDateTime.now())
+                        .lastUpdated(konsultasi.getLastUpdated())
                         .caregiverData(null)
                         .pacilianData(pacilianFuture.get())
                         .build();
@@ -416,7 +416,7 @@ public class KonsultasiServiceImpl implements KonsultasiService {
                         .scheduleDateTime(konsultasi.getScheduleDateTime())
                         .notes(konsultasi.getNotes())
                         .status(konsultasi.getStatus())
-                        .lastUpdated(LocalDateTime.now())
+                        .lastUpdated(konsultasi.getLastUpdated())
                         .caregiverData(caregiverFuture.get())
                         .pacilianData(null)
                         .build();
@@ -431,7 +431,7 @@ public class KonsultasiServiceImpl implements KonsultasiService {
                     .scheduleDateTime(konsultasi.getScheduleDateTime())
                     .notes(konsultasi.getNotes())
                     .status(konsultasi.getStatus())
-                    .lastUpdated(LocalDateTime.now())
+                    .lastUpdated(konsultasi.getLastUpdated())
                     .caregiverData(null)
                     .pacilianData(null)
                     .build();
