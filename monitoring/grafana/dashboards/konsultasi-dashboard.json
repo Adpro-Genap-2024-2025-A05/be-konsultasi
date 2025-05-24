@@ -177,7 +177,7 @@
             "type": "prometheus",
             "uid": "Prometheus"
           },
-          "expr": "rate(konsultasi_created_total[5m])",
+          "expr": "rate(konsultasi_total[5m])",
           "legendFormat": "Created",
           "refId": "A"
         },
