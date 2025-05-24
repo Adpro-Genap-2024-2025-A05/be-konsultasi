@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/schedule")
+@RequestMapping("/api/schedule")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*")
 public class ScheduleController {
