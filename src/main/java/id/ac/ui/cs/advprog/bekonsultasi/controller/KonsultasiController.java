@@ -37,7 +37,7 @@ public class KonsultasiController {
                 .body(ApiResponseDto.success(201, "Created successfully", response));
     }
 
-    @PostMapping(path = "/{konsultasiId}/confirm", produces = MediaType.APPLICATION_JSON_VALUE)
+    @PatchMapping(path = "/{konsultasiId}/confirm", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> confirmKonsultasi(
             @PathVariable UUID konsultasiId,
             HttpServletRequest request) {
@@ -48,7 +48,7 @@ public class KonsultasiController {
         return ResponseEntity.ok(ApiResponseDto.success(200, "Consultation confirmed successfully", response));
     }
 
-    @PostMapping(path = "/{konsultasiId}/cancel", produces = MediaType.APPLICATION_JSON_VALUE)
+    @PatchMapping(path = "/{konsultasiId}/cancel", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> cancelKonsultasi(
             @PathVariable UUID konsultasiId,
             HttpServletRequest request) {
@@ -61,7 +61,7 @@ public class KonsultasiController {
         return ResponseEntity.ok(ApiResponseDto.success(200, "Consultation cancelled successfully", response));
     }
 
-    @PostMapping(path = "/{konsultasiId}/complete", produces = MediaType.APPLICATION_JSON_VALUE)
+    @PatchMapping(path = "/{konsultasiId}/complete", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> completeKonsultasi(
             @PathVariable UUID konsultasiId,
             HttpServletRequest request) {
@@ -97,7 +97,7 @@ public class KonsultasiController {
         return ResponseEntity.ok(ApiResponseDto.success(200, "Consultation rescheduled successfully", response));
     }
 
-    @PostMapping(path = "/{konsultasiId}/accept-reschedule", produces = MediaType.APPLICATION_JSON_VALUE)
+    @PatchMapping(path = "/{konsultasiId}/accept-reschedule", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> acceptReschedule(
             @PathVariable UUID konsultasiId,
             HttpServletRequest request) {
@@ -108,7 +108,7 @@ public class KonsultasiController {
         return ResponseEntity.ok(ApiResponseDto.success(200, "Rescheduled consultation accepted", response));
     }
 
-    @PostMapping(path = "/{konsultasiId}/reject-reschedule", produces = MediaType.APPLICATION_JSON_VALUE)
+    @PatchMapping(path = "/{konsultasiId}/reject-reschedule", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> rejectReschedule(
             @PathVariable UUID konsultasiId,
             HttpServletRequest request) {
