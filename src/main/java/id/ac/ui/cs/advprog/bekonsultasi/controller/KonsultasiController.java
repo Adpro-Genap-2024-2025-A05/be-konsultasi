@@ -84,7 +84,7 @@ public class KonsultasiController {
         return ResponseEntity.ok(ApiResponseDto.success(200, "Consultation request updated successfully", response));
     }
 
-    @PostMapping(path = "/{konsultasiId}/reschedule", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    @PatchMapping(path = "/{konsultasiId}/reschedule", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> rescheduleKonsultasi(
             @PathVariable UUID konsultasiId,
             @Valid @RequestBody RescheduleKonsultasiDto dto,
