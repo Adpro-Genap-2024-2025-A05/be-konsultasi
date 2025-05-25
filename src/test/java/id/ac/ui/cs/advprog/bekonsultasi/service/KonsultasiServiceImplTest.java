@@ -111,11 +111,11 @@ class KonsultasiServiceImplTest {
                         .build();
 
                 switch (status) {
-                        case "REQUESTED" -> k.setState(new RequestedState());
                         case "CONFIRMED" -> k.setState(new ConfirmedState());
                         case "CANCELLED" -> k.setState(new CancelledState());
                         case "DONE" -> k.setState(new DoneState());
                         case "RESCHEDULED" -> k.setState(new RescheduledState());
+                        default -> k.setState(new RequestedState());
                 }
                 return k;
         }
@@ -497,5 +497,286 @@ class KonsultasiServiceImplTest {
                 assertNotNull(response);
                 assertNotNull(response.getCaregiverData());
                 assertEquals("Dr. Test", response.getCaregiverData().getName());
+        }
+
+        @Test
+        void getKonsultasiById_WithPacilianData() throws ExecutionException, InterruptedException {
+                when(konsultasiRepository.findById(konsultasiId)).thenReturn(Optional.of(konsultasi));
+
+                PacilianPublicDto pacilianData = PacilianPublicDto.builder()
+                        .id(pacilianId.toString())
+                        .name("John Doe")
+                        .email("john@test.com")
+                        .address("Test Address")
+                        .build();
+
+                CompletableFuture<PacilianPublicDto> future = CompletableFuture.completedFuture(pacilianData);
+                when(userDataService.getPacilianByIdAsync(pacilianId)).thenReturn(future);
+
+                KonsultasiResponseDto response = konsultasiService.getKonsultasiById(konsultasiId, caregiverId, "CAREGIVER");
+
+                assertNotNull(response);
+                assertNotNull(response.getPacilianData());
+                assertEquals("John Doe", response.getPacilianData().getName());
+        }
+
+        @Test
+        void getKonsultasiById_AsyncException() throws ExecutionException, InterruptedException {
+                when(konsultasiRepository.findById(konsultasiId)).thenReturn(Optional.of(konsultasi));
+
+                CompletableFuture<CaregiverPublicDto> future = new CompletableFuture<>();
+                future.completeExceptionally(new RuntimeException("Service error"));
+                when(userDataService.getCaregiverByIdAsync(caregiverId)).thenReturn(future);
+
+                KonsultasiResponseDto response = konsultasiService.getKonsultasiById(konsultasiId, pacilianId, "PACILIAN");
+
+                assertNotNull(response);
+                assertNull(response.getCaregiverData());
+        }
+
+        @Test
+        void getKonsultasiById_InterruptedException() throws ExecutionException, InterruptedException {
+                when(konsultasiRepository.findById(konsultasiId)).thenReturn(Optional.of(konsultasi));
+
+                CompletableFuture<CaregiverPublicDto> future = mock(CompletableFuture.class);
+                when(userDataService.getCaregiverByIdAsync(caregiverId)).thenReturn(future);
+                when(future.get()).thenThrow(new InterruptedException("Interrupted"));
+
+                KonsultasiResponseDto response = konsultasiService.getKonsultasiById(konsultasiId, pacilianId, "PACILIAN");
+
+                assertNotNull(response);
+                assertNull(response.getCaregiverData());
+        }
+
+        @Test
+        void getKonsultasiById_NullFuture() {
+                when(konsultasiRepository.findById(konsultasiId)).thenReturn(Optional.of(konsultasi));
+                when(userDataService.getCaregiverByIdAsync(caregiverId)).thenReturn(null);
+
+                KonsultasiResponseDto response = konsultasiService.getKonsultasiById(konsultasiId, pacilianId, "PACILIAN");
+
+                assertNotNull(response);
+                assertNull(response.getCaregiverData());
+        }
+
+        @Test
+        void getKonsultasiByPacilianId_Success() {
+                List<Konsultasi> konsultasiList = Arrays.asList(konsultasi);
+                when(konsultasiRepository.findByPacilianId(pacilianId)).thenReturn(konsultasiList);
+
+                List<KonsultasiResponseDto> result = konsultasiService.getKonsultasiByPacilianId(pacilianId);
+
+                assertNotNull(result);
+                assertEquals(1, result.size());
+                assertEquals(konsultasiId, result.get(0).getId());
+        }
+
+        @Test
+        void getKonsultasiByCaregiverId_Success() {
+                List<Konsultasi> konsultasiList = Arrays.asList(konsultasi);
+                when(konsultasiRepository.findByCaregiverId(caregiverId)).thenReturn(konsultasiList);
+
+                List<KonsultasiResponseDto> result = konsultasiService.getKonsultasiByCaregiverId(caregiverId);
+
+                assertNotNull(result);
+                assertEquals(1, result.size());
+                assertEquals(konsultasiId, result.get(0).getId());
+        }
+
+        @Test
+        void getRequestedKonsultasiByCaregiverId_Success() {
+                List<Konsultasi> konsultasiList = Arrays.asList(konsultasi);
+                when(konsultasiRepository.findByStatusAndCaregiverId("REQUESTED", caregiverId)).thenReturn(konsultasiList);
+
+                List<KonsultasiResponseDto> result = konsultasiService.getRequestedKonsultasiByCaregiverId(caregiverId);
+
+                assertNotNull(result);
+                assertEquals(1, result.size());
+                assertEquals(konsultasiId, result.get(0).getId());
+        }
+
+        @Test
+        void createKonsultasi_TimeConflictExactTime() {
+                Konsultasi existingKonsultasi = createTestKonsultasi(UUID.randomUUID(), scheduleId,
+                        caregiverId, pacilianId, scheduleDateTime, "CONFIRMED");
+
+                when(scheduleRepository.findById(scheduleId)).thenReturn(Optional.of(schedule));
+                when(scheduleService.isScheduleAvailableForDateTime(scheduleId, scheduleDateTime)).thenReturn(true);
+                when(konsultasiRepository.findByPacilianIdAndStatusNotIn(pacilianId, Arrays.asList("CANCELLED", "DONE")))
+                        .thenReturn(Arrays.asList(existingKonsultasi));
+
+                assertThrows(ScheduleException.class, () ->
+                        konsultasiService.createKonsultasi(createDto, pacilianId));
+        }
+
+        @Test
+        void createKonsultasi_TimeConflictOverlapping() {
+                Konsultasi existingKonsultasi = createTestKonsultasi(UUID.randomUUID(), scheduleId,
+                        caregiverId, pacilianId, scheduleDateTime.plusMinutes(30), "CONFIRMED");
+
+                when(scheduleRepository.findById(scheduleId)).thenReturn(Optional.of(schedule));
+                when(scheduleService.isScheduleAvailableForDateTime(scheduleId, scheduleDateTime)).thenReturn(true);
+                when(konsultasiRepository.findByPacilianIdAndStatusNotIn(pacilianId, Arrays.asList("CANCELLED", "DONE")))
+                        .thenReturn(Arrays.asList(existingKonsultasi));
+
+                assertThrows(ScheduleException.class, () ->
+                        konsultasiService.createKonsultasi(createDto, pacilianId));
+        }
+
+        @Test
+        void updateKonsultasiRequest_ScheduleNotAvailable() {
+                when(konsultasiRepository.findById(konsultasiId)).thenReturn(Optional.of(konsultasi));
+                when(scheduleService.isScheduleAvailableForDateTime(scheduleId, futureDateTime)).thenReturn(false);
+
+                assertThrows(ScheduleException.class, () ->
+                        konsultasiService.updateKonsultasiRequest(konsultasiId, updateDto, pacilianId));
+        }
+
+        @Test
+        void updateKonsultasiRequest_TimeConflict() {
+                Konsultasi conflictingKonsultasi = createTestKonsultasi(UUID.randomUUID(), scheduleId,
+                        caregiverId, pacilianId, futureDateTime, "CONFIRMED");
+
+                when(konsultasiRepository.findById(konsultasiId)).thenReturn(Optional.of(konsultasi));
+                when(scheduleService.isScheduleAvailableForDateTime(scheduleId, futureDateTime)).thenReturn(true);
+                when(konsultasiRepository.findByPacilianIdAndStatusNotIn(pacilianId, Arrays.asList("CANCELLED", "DONE")))
+                        .thenReturn(Arrays.asList(konsultasi, conflictingKonsultasi));
+
+                assertThrows(ScheduleException.class, () ->
+                        konsultasiService.updateKonsultasiRequest(konsultasiId, updateDto, pacilianId));
+        }
+
+        @Test
+        void rescheduleKonsultasi_ScheduleNotAvailable() {
+                Konsultasi confirmedKonsultasi = createTestKonsultasi(konsultasiId, scheduleId, caregiverId,
+                        pacilianId, scheduleDateTime, "CONFIRMED");
+                when(konsultasiRepository.findById(konsultasiId)).thenReturn(Optional.of(confirmedKonsultasi));
+                when(scheduleService.isScheduleAvailableForDateTime(scheduleId, futureDateTime)).thenReturn(false);
+
+                assertThrows(ScheduleException.class, () ->
+                        konsultasiService.rescheduleKonsultasi(konsultasiId, rescheduleDto, caregiverId));
+        }
+
+        @Test
+        void rescheduleKonsultasi_NewScheduleNotFound() {
+                rescheduleDto.setNewScheduleId(newScheduleId);
+                Konsultasi confirmedKonsultasi = createTestKonsultasi(konsultasiId, scheduleId, caregiverId,
+                        pacilianId, scheduleDateTime, "CONFIRMED");
+                when(konsultasiRepository.findById(konsultasiId)).thenReturn(Optional.of(confirmedKonsultasi));
+                when(scheduleRepository.findById(newScheduleId)).thenReturn(Optional.empty());
+
+                assertThrows(ScheduleException.class, () ->
+                        konsultasiService.rescheduleKonsultasi(konsultasiId, rescheduleDto, caregiverId));
+        }
+
+        @Test
+        void updateKonsultasiRequest_NewScheduleNotFound() {
+                updateDto.setNewScheduleId(newScheduleId);
+                when(konsultasiRepository.findById(konsultasiId)).thenReturn(Optional.of(konsultasi));
+                when(scheduleRepository.findById(newScheduleId)).thenReturn(Optional.empty());
+
+                assertThrows(ScheduleException.class, () ->
+                        konsultasiService.updateKonsultasiRequest(konsultasiId, updateDto, pacilianId));
+        }
+
+        @Test
+        void acceptReschedule_WrongPacilian() {
+                UUID wrongPacilian = UUID.randomUUID();
+                Konsultasi rescheduledKonsultasi = createTestKonsultasi(konsultasiId, scheduleId, caregiverId,
+                        pacilianId, futureDateTime, "RESCHEDULED");
+                when(konsultasiRepository.findById(konsultasiId)).thenReturn(Optional.of(rescheduledKonsultasi));
+
+                assertThrows(ScheduleException.class, () ->
+                        konsultasiService.acceptReschedule(konsultasiId, wrongPacilian));
+        }
+
+        @Test
+        void rejectReschedule_WrongPacilian() {
+                UUID wrongPacilian = UUID.randomUUID();
+                Konsultasi rescheduledKonsultasi = createTestKonsultasi(konsultasiId, scheduleId, caregiverId,
+                        pacilianId, futureDateTime, "RESCHEDULED");
+                when(konsultasiRepository.findById(konsultasiId)).thenReturn(Optional.of(rescheduledKonsultasi));
+
+                assertThrows(ScheduleException.class, () ->
+                        konsultasiService.rejectReschedule(konsultasiId, wrongPacilian));
+        }
+
+        @Test
+        void rejectReschedule_WrongStatus() {
+                when(konsultasiRepository.findById(konsultasiId)).thenReturn(Optional.of(konsultasi));
+
+                assertThrows(ScheduleException.class, () ->
+                        konsultasiService.rejectReschedule(konsultasiId, pacilianId));
+        }
+
+        @Test
+        void getKonsultasiById_KonsultasiNotFound() {
+                when(konsultasiRepository.findById(konsultasiId)).thenReturn(Optional.empty());
+
+                assertThrows(ScheduleException.class, () ->
+                        konsultasiService.getKonsultasiById(konsultasiId, pacilianId, "PACILIAN"));
+        }
+
+        @Test
+        void confirmKonsultasi_StateTransitionError() {
+                // Use DONE state which cannot be confirmed
+                Konsultasi doneKonsultasi = createTestKonsultasi(konsultasiId, scheduleId, caregiverId,
+                        pacilianId, scheduleDateTime, "DONE");
+                when(konsultasiRepository.findById(konsultasiId)).thenReturn(Optional.of(doneKonsultasi));
+
+                ScheduleException exception = assertThrows(ScheduleException.class, () ->
+                        konsultasiService.confirmKonsultasi(konsultasiId, caregiverId));
+
+                assertEquals("Cannot confirm a completed consultation", exception.getMessage());
+        }
+
+        @Test
+        void completeKonsultasi_StateTransitionError() {
+                Konsultasi cancelledKonsultasi = createTestKonsultasi(konsultasiId, scheduleId, caregiverId,
+                        pacilianId, scheduleDateTime, "CANCELLED");
+                when(konsultasiRepository.findById(konsultasiId)).thenReturn(Optional.of(cancelledKonsultasi));
+
+                ScheduleException exception = assertThrows(ScheduleException.class, () ->
+                        konsultasiService.completeKonsultasi(konsultasiId, caregiverId));
+
+                assertEquals("Cannot complete a cancelled consultation", exception.getMessage());
+        }
+
+        @Test
+        void cancelKonsultasi_WrongCaregiver() {
+                UUID wrongCaregiver = UUID.randomUUID();
+                when(konsultasiRepository.findById(konsultasiId)).thenReturn(Optional.of(konsultasi));
+
+                assertThrows(ScheduleException.class, () ->
+                        konsultasiService.cancelKonsultasi(konsultasiId, wrongCaregiver, "CAREGIVER"));
+        }
+
+        @Test
+        void rescheduleKonsultasi_WrongCaregiver() {
+                UUID wrongCaregiver = UUID.randomUUID();
+                Konsultasi confirmedKonsultasi = createTestKonsultasi(konsultasiId, scheduleId, caregiverId,
+                        pacilianId, scheduleDateTime, "CONFIRMED");
+                when(konsultasiRepository.findById(konsultasiId)).thenReturn(Optional.of(confirmedKonsultasi));
+
+                assertThrows(ScheduleException.class, () ->
+                        konsultasiService.rescheduleKonsultasi(konsultasiId, rescheduleDto, wrongCaregiver));
+        }
+
+        @Test
+        void getKonsultasiById_WrongPacilianAccess() {
+                UUID wrongPacilian = UUID.randomUUID();
+                when(konsultasiRepository.findById(konsultasiId)).thenReturn(Optional.of(konsultasi));
+
+                assertThrows(ScheduleException.class, () ->
+                        konsultasiService.getKonsultasiById(konsultasiId, wrongPacilian, "PACILIAN"));
+        }
+
+        @Test
+        void getKonsultasiById_WrongCaregiverAccess() {
+                UUID wrongCaregiver = UUID.randomUUID();
+                when(konsultasiRepository.findById(konsultasiId)).thenReturn(Optional.of(konsultasi));
+
+                assertThrows(ScheduleException.class, () ->
+                        konsultasiService.getKonsultasiById(konsultasiId, wrongCaregiver, "CAREGIVER"));
         }
 }
