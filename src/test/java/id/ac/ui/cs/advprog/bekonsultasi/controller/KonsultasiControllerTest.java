@@ -3,6 +3,7 @@ package id.ac.ui.cs.advprog.bekonsultasi.controller;
 import id.ac.ui.cs.advprog.bekonsultasi.dto.*;
 import id.ac.ui.cs.advprog.bekonsultasi.enums.Role;
 import id.ac.ui.cs.advprog.bekonsultasi.exception.AuthenticationException;
+import id.ac.ui.cs.advprog.bekonsultasi.exception.ScheduleException;
 import id.ac.ui.cs.advprog.bekonsultasi.service.KonsultasiService;
 import id.ac.ui.cs.advprog.bekonsultasi.service.ScheduleService;
 import id.ac.ui.cs.advprog.bekonsultasi.service.TokenVerificationService;
@@ -301,5 +302,200 @@ class KonsultasiControllerTest {
         assertEquals(konsultasiList, response.getBody().getData());
 
         verify(konsultasiService).getRequestedKonsultasiByCaregiverId(caregiverId);
+    }
+
+    @Test
+    void testGetKonsultasiById() {
+        when(request.getHeader("Authorization")).thenReturn("Bearer token");
+        when(tokenVerificationService.verifyToken("token")).thenReturn(pacilianVerification);
+        when(konsultasiService.getKonsultasiById(konsultasiId, pacilianId, "PACILIAN")).thenReturn(responseDto);
+
+        ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> response =
+                konsultasiController.getKonsultasiById(konsultasiId, request);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(200, response.getBody().getStatus());
+        assertEquals("Success", response.getBody().getMessage());
+        assertEquals(responseDto, response.getBody().getData());
+
+        verify(konsultasiService).getKonsultasiById(konsultasiId, pacilianId, "PACILIAN");
+    }
+
+    @Test
+    void testUpdateKonsultasiRequest() {
+        UpdateKonsultasiRequestDto updateDto = new UpdateKonsultasiRequestDto();
+        updateDto.setNewScheduleDateTime(LocalDateTime.now().plusDays(8));
+        updateDto.setNewScheduleId(scheduleId);
+        updateDto.setNotes("Updated notes");
+
+        when(request.getHeader("Authorization")).thenReturn("Bearer token");
+        when(tokenVerificationService.verifyToken("token")).thenReturn(pacilianVerification);
+        when(konsultasiService.updateKonsultasiRequest(konsultasiId, updateDto, pacilianId)).thenReturn(responseDto);
+
+        ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> response =
+                konsultasiController.updateKonsultasiRequest(konsultasiId, updateDto, request);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(200, response.getBody().getStatus());
+        assertEquals("Consultation request updated successfully", response.getBody().getMessage());
+        assertEquals(responseDto, response.getBody().getData());
+
+        verify(konsultasiService).updateKonsultasiRequest(konsultasiId, updateDto, pacilianId);
+    }
+
+    @Test
+    void testUpdateKonsultasiRequest_NotPacilianRole() {
+        UpdateKonsultasiRequestDto updateDto = new UpdateKonsultasiRequestDto();
+        updateDto.setNewScheduleDateTime(LocalDateTime.now().plusDays(8));
+
+        when(request.getHeader("Authorization")).thenReturn("Bearer token");
+        when(tokenVerificationService.verifyToken("token")).thenReturn(caregiverVerification);
+
+        assertThrows(AuthenticationException.class, () ->
+                konsultasiController.updateKonsultasiRequest(konsultasiId, updateDto, request));
+
+        verify(konsultasiService, never()).updateKonsultasiRequest(any(), any(), any());
+    }
+
+    @Test
+    void testRescheduleKonsultasi_NotCaregiverRole() {
+        when(request.getHeader("Authorization")).thenReturn("Bearer token");
+        when(tokenVerificationService.verifyToken("token")).thenReturn(pacilianVerification);
+
+        assertThrows(AuthenticationException.class, () ->
+                konsultasiController.rescheduleKonsultasi(konsultasiId, rescheduleDto, request));
+
+        verify(konsultasiService, never()).rescheduleKonsultasi(any(), any(), any());
+    }
+
+    @Test
+    void testConfirmKonsultasi_NotCaregiverRole() {
+        when(request.getHeader("Authorization")).thenReturn("Bearer token");
+        when(tokenVerificationService.verifyToken("token")).thenReturn(pacilianVerification);
+
+        assertThrows(AuthenticationException.class, () ->
+                konsultasiController.confirmKonsultasi(konsultasiId, request));
+
+        verify(konsultasiService, never()).confirmKonsultasi(any(), any());
+    }
+
+    @Test
+    void testCompleteKonsultasi_NotCaregiverRole() {
+        when(request.getHeader("Authorization")).thenReturn("Bearer token");
+        when(tokenVerificationService.verifyToken("token")).thenReturn(pacilianVerification);
+
+        assertThrows(AuthenticationException.class, () ->
+                konsultasiController.completeKonsultasi(konsultasiId, request));
+
+        verify(konsultasiService, never()).completeKonsultasi(any(), any());
+    }
+
+    @Test
+    void testAcceptReschedule_NotPacilianRole() {
+        when(request.getHeader("Authorization")).thenReturn("Bearer token");
+        when(tokenVerificationService.verifyToken("token")).thenReturn(caregiverVerification);
+
+        assertThrows(AuthenticationException.class, () ->
+                konsultasiController.acceptReschedule(konsultasiId, request));
+
+        verify(konsultasiService, never()).acceptReschedule(any(), any());
+    }
+
+    @Test
+    void testRejectReschedule_NotPacilianRole() {
+        when(request.getHeader("Authorization")).thenReturn("Bearer token");
+        when(tokenVerificationService.verifyToken("token")).thenReturn(caregiverVerification);
+
+        assertThrows(AuthenticationException.class, () ->
+                konsultasiController.rejectReschedule(konsultasiId, request));
+
+        verify(konsultasiService, never()).rejectReschedule(any(), any());
+    }
+
+    @Test
+    void testGetKonsultasiByPacilianId_NotPacilianRole() {
+        when(request.getHeader("Authorization")).thenReturn("Bearer token");
+        when(tokenVerificationService.verifyToken("token")).thenReturn(caregiverVerification);
+
+        assertThrows(AuthenticationException.class, () ->
+                konsultasiController.getKonsultasiByPacilianId(request));
+
+        verify(konsultasiService, never()).getKonsultasiByPacilianId(any());
+    }
+
+    @Test
+    void testGetKonsultasiByCaregiverId_NotCaregiverRole() {
+        when(request.getHeader("Authorization")).thenReturn("Bearer token");
+        when(tokenVerificationService.verifyToken("token")).thenReturn(pacilianVerification);
+
+        assertThrows(AuthenticationException.class, () ->
+                konsultasiController.getKonsultasiByCaregiverId(request));
+
+        verify(konsultasiService, never()).getKonsultasiByCaregiverId(any());
+    }
+
+    @Test
+    void testGetRequestedKonsultasiByCaregiverId_NotCaregiverRole() {
+        when(request.getHeader("Authorization")).thenReturn("Bearer token");
+        when(tokenVerificationService.verifyToken("token")).thenReturn(pacilianVerification);
+
+        assertThrows(AuthenticationException.class, () ->
+                konsultasiController.getRequestedKonsultasiByCaregiverId(request));
+
+        verify(konsultasiService, never()).getRequestedKonsultasiByCaregiverId(any());
+    }
+
+    @Test
+    void testExtractToken_MissingAuthorizationHeader() {
+        when(request.getHeader("Authorization")).thenReturn(null);
+
+        assertThrows(AuthenticationException.class, () ->
+                konsultasiController.createKonsultasi(createDto, request));
+
+        verify(tokenVerificationService, never()).verifyToken(any());
+        verify(konsultasiService, never()).createKonsultasi(any(), any());
+    }
+
+    @Test
+    void testExtractToken_InvalidAuthorizationHeader() {
+        when(request.getHeader("Authorization")).thenReturn("Invalid token");
+
+        assertThrows(AuthenticationException.class, () ->
+                konsultasiController.createKonsultasi(createDto, request));
+
+        verify(tokenVerificationService, never()).verifyToken(any());
+        verify(konsultasiService, never()).createKonsultasi(any(), any());
+    }
+
+    @Test
+    void testHandleScheduleException() {
+        ScheduleException exception = new ScheduleException("Schedule error");
+
+        ResponseEntity<ApiResponseDto<Object>> response =
+                konsultasiController.handleScheduleException(exception);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(400, response.getBody().getStatus());
+        assertEquals("Schedule error", response.getBody().getMessage());
+    }
+
+    @Test
+    void testHandleAuthenticationException() {
+        AuthenticationException exception = new AuthenticationException("Auth error");
+
+        ResponseEntity<ApiResponseDto<Object>> response =
+                konsultasiController.handleAuthenticationException(exception);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(401, response.getBody().getStatus());
+        assertEquals("Auth error", response.getBody().getMessage());
     }
 }
