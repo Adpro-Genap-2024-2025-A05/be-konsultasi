@@ -224,7 +224,7 @@ public class KonsultasiServiceImpl implements KonsultasiService {
         List<Konsultasi> konsultasiList = konsultasiRepository.findByPacilianId(pacilianId);
         return konsultasiList.stream()
                 .map(k -> convertToResponseDtoByRole(k, PACILIAN_ROLE))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Override
@@ -232,7 +232,7 @@ public class KonsultasiServiceImpl implements KonsultasiService {
         List<Konsultasi> konsultasiList = konsultasiRepository.findByCaregiverId(caregiverId);
         return konsultasiList.stream()
                 .map(k -> convertToResponseDtoByRole(k, CAREGIVER_ROLE))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Override
@@ -420,7 +420,7 @@ public class KonsultasiServiceImpl implements KonsultasiService {
     private List<KonsultasiResponseDto> convertToDtoList(List<Konsultasi> konsultasiList) {
         return konsultasiList.stream()
                 .map(this::convertToResponseDto)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     private KonsultasiResponseDto convertToResponseDto(Konsultasi konsultasi) {

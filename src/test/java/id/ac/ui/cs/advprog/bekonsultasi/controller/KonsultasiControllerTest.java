@@ -132,7 +132,7 @@ class KonsultasiControllerTest {
     void testRescheduleKonsultasi() {
         when(request.getHeader("Authorization")).thenReturn("Bearer token");
         when(tokenVerificationService.verifyToken("token")).thenReturn(caregiverVerification);
-        when(konsultasiService.rescheduleKonsultasi(eq(konsultasiId), eq(rescheduleDto), eq(caregiverId))).thenReturn(responseDto);
+        when(konsultasiService.rescheduleKonsultasi(konsultasiId, rescheduleDto, caregiverId)).thenReturn(responseDto);
 
         ResponseEntity<ApiResponseDto<KonsultasiResponseDto>> response =
                 konsultasiController.rescheduleKonsultasi(konsultasiId, rescheduleDto, request);
@@ -144,7 +144,7 @@ class KonsultasiControllerTest {
         assertEquals("Consultation rescheduled successfully", response.getBody().getMessage());
         assertEquals(responseDto, response.getBody().getData());
 
-        verify(konsultasiService).rescheduleKonsultasi(eq(konsultasiId), eq(rescheduleDto), eq(caregiverId));
+        verify(konsultasiService).rescheduleKonsultasi(konsultasiId, rescheduleDto, caregiverId);
     }
 
     @Test
