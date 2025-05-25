@@ -372,11 +372,13 @@ public class ScheduleServiceImpl implements ScheduleService {
                     .collect(Collectors.toList());
 
             scheduleSuccessfulOperationsCounter.increment();
+            log.info("Found {} available schedules for {} caregivers", availableSchedules.size(), caregiverIds.size());
             return convertToResponseDtoList(availableSchedules);
         } catch (Exception e) {
             scheduleDatabaseErrorCounter.increment();
             scheduleGeneralErrorCounter.increment();
             scheduleFailedOperationsCounter.increment();
+            log.error("Failed to fetch available schedules for caregivers: {}", e.getMessage(), e);
             throw e;
         }
     }
@@ -386,6 +388,7 @@ public class ScheduleServiceImpl implements ScheduleService {
             return scheduleRepository.findById(scheduleId)
                     .orElseThrow(() -> {
                         scheduleNotFoundCounter.increment();
+                        log.error("Schedule not found: {}", scheduleId);
                         return new IllegalArgumentException("Schedule not found with id: " + scheduleId);
                     });
         } catch (Exception e) {
@@ -411,6 +414,8 @@ public class ScheduleServiceImpl implements ScheduleService {
         );
 
         if (!conflictingSchedules.isEmpty()) {
+            log.warn("Schedule overlap detected for caregiver: {} on {} from {} to {}",
+                    caregiverId, newSchedule.getDay(), newSchedule.getStartTime(), newSchedule.getEndTime());
             throw new ScheduleConflictException(
                     "Schedule conflicts with existing schedule(s). " +
                             "You already have a schedule on " + newSchedule.getDay() +
