@@ -36,6 +36,20 @@ Mitigasi: Desain baru memperkenalkan arsitektur failover dengan menambahkan Back
 
 ![Code Diagram Bastian](./images/code-diagram-bastian.png)
 
+# Individu Progress 90% (Bastian Adiputra Siregar)
+
+## Profiling
+
+![Profiling 1](./images/profiling-bastian1.png)
+
+![Profiling 2](./images/profiling-bastian2.png)
+
+## Monitoring
+
+![Monitoring Grafana](./images/monitoring-bastian1.png)
+
+![Monitoring Prometheus](./images/monitoring-bastian2.png)
+
 # Individu (Steven Setiawan)
 
 ## Component Diagram
