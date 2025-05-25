@@ -61,17 +61,16 @@ public class UserDataServiceImpl implements UserDataService {
     @Override
     @Async("userDataTaskExecutor")
     public CompletableFuture<CaregiverPublicDto> getCaregiverByIdAsync(UUID caregiverId) {
+        log.info("Async fetching caregiver data for ID: {}", caregiverId);
         caregiverDataRequestCounter.increment();
         
         CacheEntry<CaregiverPublicDto> cached = caregiverCache.get(caregiverId);
         if (cached != null && !cached.isExpired()) {
-            log.debug("Cache hit for caregiver ID: {}", caregiverId);
             return CompletableFuture.completedFuture(cached.getValue());
         }
         
         try {
             String url = authServiceUrl + "/data/caregiver/" + caregiverId.toString();
-            log.debug("Async fetching caregiver data from: {}", url);
             
             ResponseEntity<ApiResponseDto<CaregiverPublicDto>> response = restTemplate.exchange(
                 url, HttpMethod.GET, httpEntity,
@@ -80,30 +79,23 @@ public class UserDataServiceImpl implements UserDataService {
             
             if (response.getBody() != null && response.getBody().getData() != null) {
                 CaregiverPublicDto result = response.getBody().getData();
-                
                 caregiverCache.put(caregiverId, new CacheEntry<>(result, LocalDateTime.now()));
-                
-                log.debug("Successfully fetched and cached caregiver data for ID: {}", caregiverId);
+                log.info("Successfully fetched caregiver data for ID: {}", caregiverId);
                 return CompletableFuture.completedFuture(result);
             }
             
-            log.warn("No caregiver data found for ID: {}", caregiverId);
             userDataFallbackCounter.increment();
             CaregiverPublicDto fallback = createDefaultCaregiver(caregiverId);
-            
             caregiverCache.put(caregiverId, new CacheEntry<>(fallback, LocalDateTime.now(), Duration.ofMinutes(1)));
-            
             return CompletableFuture.completedFuture(fallback);
             
         } catch (Exception e) {
             userDataFetchErrorCounter.increment();
-            log.error("Failed to fetch caregiver data for ID: {}", caregiverId, e);
             userDataFallbackCounter.increment();
+            log.error("Failed to fetch caregiver data for ID: {}: {}", caregiverId, e.getMessage());
             
             CaregiverPublicDto fallback = createDefaultCaregiver(caregiverId);
-            
             caregiverCache.put(caregiverId, new CacheEntry<>(fallback, LocalDateTime.now(), Duration.ofMinutes(1)));
-            
             return CompletableFuture.completedFuture(fallback);
         }
     }
@@ -111,17 +103,16 @@ public class UserDataServiceImpl implements UserDataService {
     @Override
     @Async("userDataTaskExecutor")
     public CompletableFuture<PacilianPublicDto> getPacilianByIdAsync(UUID pacilianId) {
+        log.info("Async fetching pacilian data for ID: {}", pacilianId);
         pacilianDataRequestCounter.increment();
         
         CacheEntry<PacilianPublicDto> cached = pacilianCache.get(pacilianId);
         if (cached != null && !cached.isExpired()) {
-            log.debug("Cache hit for pacilian ID: {}", pacilianId);
             return CompletableFuture.completedFuture(cached.getValue());
         }
         
         try {
             String url = authServiceUrl + "/data/pacilian/" + pacilianId.toString();
-            log.debug("Async fetching pacilian data from: {}", url);
             
             ResponseEntity<ApiResponseDto<PacilianPublicDto>> response = restTemplate.exchange(
                 url, HttpMethod.GET, httpEntity,
@@ -130,40 +121,34 @@ public class UserDataServiceImpl implements UserDataService {
             
             if (response.getBody() != null && response.getBody().getData() != null) {
                 PacilianPublicDto result = response.getBody().getData();
-                
                 pacilianCache.put(pacilianId, new CacheEntry<>(result, LocalDateTime.now()));
-                
-                log.debug("Successfully fetched and cached pacilian data for ID: {}", pacilianId);
+                log.info("Successfully fetched pacilian data for ID: {}", pacilianId);
                 return CompletableFuture.completedFuture(result);
             }
             
-            log.warn("No pacilian data found for ID: {}", pacilianId);
             userDataFallbackCounter.increment();
             PacilianPublicDto fallback = createDefaultPacilian(pacilianId);
-            
             pacilianCache.put(pacilianId, new CacheEntry<>(fallback, LocalDateTime.now(), Duration.ofMinutes(1)));
-            
             return CompletableFuture.completedFuture(fallback);
             
         } catch (Exception e) {
             userDataFetchErrorCounter.increment();
-            log.error("Failed to fetch pacilian data for ID: {}", pacilianId, e);
             userDataFallbackCounter.increment();
+            log.error("Failed to fetch pacilian data for ID: {}: {}", pacilianId, e.getMessage());
             
             PacilianPublicDto fallback = createDefaultPacilian(pacilianId);
-            
             pacilianCache.put(pacilianId, new CacheEntry<>(fallback, LocalDateTime.now(), Duration.ofMinutes(1)));
-            
             return CompletableFuture.completedFuture(fallback);
         }
     }
 
     @Override
     public CaregiverPublicDto getCaregiverById(UUID caregiverId) {
+        log.info("Sync fetching caregiver data for ID: {}", caregiverId);
         try {
             return getCaregiverByIdAsync(caregiverId).get();
         } catch (Exception e) {
-            log.error("Error in sync caregiver fetch for ID: {}", caregiverId, e);
+            log.error("Error in sync caregiver fetch for ID: {}: {}", caregiverId, e.getMessage());
             userDataFetchErrorCounter.increment();
             userDataFallbackCounter.increment();
             return createDefaultCaregiver(caregiverId);
@@ -172,10 +157,11 @@ public class UserDataServiceImpl implements UserDataService {
 
     @Override
     public PacilianPublicDto getPacilianById(UUID pacilianId) {
+        log.info("Sync fetching pacilian data for ID: {}", pacilianId);
         try {
             return getPacilianByIdAsync(pacilianId).get();
         } catch (Exception e) {
-            log.error("Error in sync pacilian fetch for ID: {}", pacilianId, e);
+            log.error("Error in sync pacilian fetch for ID: {}: {}", pacilianId, e.getMessage());
             userDataFetchErrorCounter.increment();
             userDataFallbackCounter.increment();
             return createDefaultPacilian(pacilianId);
@@ -241,6 +227,6 @@ public class UserDataServiceImpl implements UserDataService {
     
     public void clearExpiredCache() {
         cleanupExpiredCache();
-        log.debug("Expired cache entries cleaned up");
+        log.info("Expired cache entries cleaned up");
     }
 }

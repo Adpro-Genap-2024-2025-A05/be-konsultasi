@@ -12,6 +12,7 @@ import id.ac.ui.cs.advprog.bekonsultasi.repository.KonsultasiRepository;
 import id.ac.ui.cs.advprog.bekonsultasi.repository.ScheduleRepository;
 import id.ac.ui.cs.advprog.bekonsultasi.service.factory.ScheduleFactory;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.scheduling.annotation.Async;
@@ -27,6 +28,7 @@ import io.micrometer.core.instrument.Counter;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ScheduleServiceImpl implements ScheduleService {
     private final ScheduleRepository scheduleRepository;
     private final KonsultasiRepository konsultasiRepository;
@@ -61,6 +63,9 @@ public class ScheduleServiceImpl implements ScheduleService {
 
     @Override
     public ScheduleResponseDto createSchedule(CreateScheduleDto dto, UUID caregiverId) {
+        log.info("Creating schedule for caregiver: {}, day: {}, time: {}-{}", 
+                caregiverId, dto.getDay(), dto.getStartTime(), dto.getEndTime());
+        
         try {
             validateScheduleTimes(dto);
 
@@ -75,29 +80,36 @@ public class ScheduleServiceImpl implements ScheduleService {
             scheduleWeeklyScheduleCounter.increment();
             scheduleSuccessfulOperationsCounter.increment();
 
+            log.info("Successfully created schedule: {} for caregiver: {}", savedSchedule.getId(), caregiverId);
             return convertToDto(savedSchedule);
         } catch (IllegalArgumentException e) {
             scheduleValidationErrorCounter.increment();
             scheduleTimeValidationErrorCounter.increment();
             scheduleGeneralErrorCounter.increment();
             scheduleFailedOperationsCounter.increment();
+            log.error("Schedule creation failed - validation error for caregiver: {}: {}", caregiverId, e.getMessage());
             throw e;
         } catch (ScheduleConflictException e) {
             scheduleConflictCounter.increment();
             scheduleOverlapPreventedCounter.increment();
             scheduleGeneralErrorCounter.increment();
             scheduleFailedOperationsCounter.increment();
+            log.error("Schedule creation failed - conflict for caregiver: {}: {}", caregiverId, e.getMessage());
             throw e;
         } catch (Exception e) {
             scheduleDatabaseErrorCounter.increment();
             scheduleGeneralErrorCounter.increment();
             scheduleFailedOperationsCounter.increment();
+            log.error("Schedule creation failed for caregiver: {}: {}", caregiverId, e.getMessage(), e);
             throw e;
         }
     }
 
     @Override
     public ScheduleResponseDto createOneTimeSchedule(CreateOneTimeScheduleDto dto, UUID caregiverId) {
+        log.info("Creating one-time schedule for caregiver: {}, date: {}, time: {}-{}", 
+                caregiverId, dto.getSpecificDate(), dto.getStartTime(), dto.getEndTime());
+        
         try {
             if (dto.getSpecificDate().isBefore(LocalDate.now())) {
                 schedulePastDateErrorCounter.increment();
@@ -113,21 +125,25 @@ public class ScheduleServiceImpl implements ScheduleService {
             scheduleFactoryOneTimeCounter.increment();
             scheduleSuccessfulOperationsCounter.increment();
 
+            log.info("Successfully created one-time schedule: {} for caregiver: {}", savedSchedule.getId(), caregiverId);
             return convertToDto(savedSchedule);
         } catch (IllegalArgumentException e) {
             scheduleValidationErrorCounter.increment();
             scheduleGeneralErrorCounter.increment();
             scheduleFailedOperationsCounter.increment();
+            log.error("One-time schedule creation failed - validation error for caregiver: {}: {}", caregiverId, e.getMessage());
             throw e;
         } catch (ScheduleConflictException e) {
             scheduleConflictCounter.increment();
             scheduleGeneralErrorCounter.increment();
             scheduleFailedOperationsCounter.increment();
+            log.error("One-time schedule creation failed - conflict for caregiver: {}: {}", caregiverId, e.getMessage());
             throw e;
         } catch (Exception e) {
             scheduleDatabaseErrorCounter.increment();
             scheduleGeneralErrorCounter.increment();
             scheduleFailedOperationsCounter.increment();
+            log.error("One-time schedule creation failed for caregiver: {}: {}", caregiverId, e.getMessage(), e);
             throw e;
         }
     }
@@ -135,11 +151,14 @@ public class ScheduleServiceImpl implements ScheduleService {
     @Override
     @Transactional
     public ScheduleResponseDto updateSchedule(UUID scheduleId, CreateScheduleDto dto, UUID caregiverId) {
+        log.info("Updating schedule: {} by caregiver: {}", scheduleId, caregiverId);
+        
         try {
             Schedule schedule = findScheduleById(scheduleId);
 
             if (!schedule.getCaregiverId().equals(caregiverId)) {
                 scheduleAuthorizationErrorCounter.increment();
+                log.warn("Unauthorized schedule update attempt - schedule: {} by caregiver: {}", scheduleId, caregiverId);
                 throw new AuthenticationException("You can only update your own schedules");
             }
 
@@ -150,6 +169,8 @@ public class ScheduleServiceImpl implements ScheduleService {
 
             if (!activeKonsultations.isEmpty()) {
                 scheduleActiveKonsultasiBlockCounter.increment();
+                log.warn("Schedule update blocked due to active consultations - schedule: {}, active count: {}", 
+                        scheduleId, activeKonsultations.size());
                 throw new ScheduleException("Cannot update schedule that is currently used in active consultations");
             }
 
@@ -164,6 +185,7 @@ public class ScheduleServiceImpl implements ScheduleService {
             scheduleUpdatedCounter.increment();
             scheduleSuccessfulOperationsCounter.increment();
 
+            log.info("Successfully updated schedule: {}", scheduleId);
             return convertToDto(updatedSchedule);
         } catch (AuthenticationException e) {
             scheduleGeneralErrorCounter.increment();
@@ -173,6 +195,7 @@ public class ScheduleServiceImpl implements ScheduleService {
             scheduleValidationErrorCounter.increment();
             scheduleGeneralErrorCounter.increment();
             scheduleFailedOperationsCounter.increment();
+            log.error("Schedule update failed - validation error for schedule: {}: {}", scheduleId, e.getMessage());
             throw e;
         } catch (ScheduleException e) {
             scheduleGeneralErrorCounter.increment();
@@ -182,6 +205,7 @@ public class ScheduleServiceImpl implements ScheduleService {
             scheduleDatabaseErrorCounter.increment();
             scheduleGeneralErrorCounter.increment();
             scheduleFailedOperationsCounter.increment();
+            log.error("Schedule update failed for schedule: {}: {}", scheduleId, e.getMessage(), e);
             throw e;
         }
     }
@@ -189,11 +213,14 @@ public class ScheduleServiceImpl implements ScheduleService {
     @Override
     @Transactional
     public void deleteSchedule(UUID scheduleId, UUID caregiverId) {
+        log.info("Deleting schedule: {} by caregiver: {}", scheduleId, caregiverId);
+        
         try {
             Schedule schedule = findScheduleById(scheduleId);
 
             if (!schedule.getCaregiverId().equals(caregiverId)) {
                 scheduleAuthorizationErrorCounter.increment();
+                log.warn("Unauthorized schedule deletion attempt - schedule: {} by caregiver: {}", scheduleId, caregiverId);
                 throw new AuthenticationException("You can only delete your own schedules");
             }
 
@@ -204,6 +231,8 @@ public class ScheduleServiceImpl implements ScheduleService {
 
             if (!futureKonsultations.isEmpty()) {
                 scheduleActiveKonsultasiBlockCounter.increment();
+                log.warn("Schedule deletion blocked due to future consultations - schedule: {}, future count: {}", 
+                        scheduleId, futureKonsultations.size());
                 throw new ScheduleException("Cannot delete schedule with future consultations");
             }
 
@@ -211,6 +240,8 @@ public class ScheduleServiceImpl implements ScheduleService {
 
             scheduleDeletedCounter.increment();
             scheduleSuccessfulOperationsCounter.increment();
+            
+            log.info("Successfully deleted schedule: {}", scheduleId);
         } catch (AuthenticationException e) {
             scheduleGeneralErrorCounter.increment();
             scheduleFailedOperationsCounter.increment();
@@ -223,6 +254,7 @@ public class ScheduleServiceImpl implements ScheduleService {
             scheduleDatabaseErrorCounter.increment();
             scheduleGeneralErrorCounter.increment();
             scheduleFailedOperationsCounter.increment();
+            log.error("Schedule deletion failed for schedule: {}: {}", scheduleId, e.getMessage(), e);
             throw e;
         }
     }
@@ -231,12 +263,14 @@ public class ScheduleServiceImpl implements ScheduleService {
     @Async
     @Transactional
     public CompletableFuture<Void> deleteScheduleAsync(UUID scheduleId, UUID caregiverId) {
+        log.info("Async deleting schedule: {} by caregiver: {}", scheduleId, caregiverId);
         scheduleDeleteAsyncCounter.increment();
 
         try {
             deleteSchedule(scheduleId, caregiverId);
             return CompletableFuture.completedFuture(null);
         } catch (Exception e) {
+            log.error("Async schedule deletion failed for schedule: {}: {}", scheduleId, e.getMessage());
             CompletableFuture<Void> future = new CompletableFuture<>();
             future.completeExceptionally(e);
             return future;
@@ -245,32 +279,38 @@ public class ScheduleServiceImpl implements ScheduleService {
 
     @Override
     public List<ScheduleResponseDto> getCaregiverSchedules(UUID caregiverId) {
+        log.info("Fetching schedules for caregiver: {}", caregiverId);
         scheduleCaregiverQueryCounter.increment();
 
         try {
             List<Schedule> schedules = scheduleRepository.findByCaregiverId(caregiverId);
             scheduleSuccessfulOperationsCounter.increment();
+            log.info("Successfully fetched {} schedules for caregiver: {}", schedules.size(), caregiverId);
             return convertToResponseDtoList(schedules);
         } catch (Exception e) {
             scheduleDatabaseErrorCounter.increment();
             scheduleGeneralErrorCounter.increment();
             scheduleFailedOperationsCounter.increment();
+            log.error("Failed to fetch schedules for caregiver: {}: {}", caregiverId, e.getMessage(), e);
             throw e;
         }
     }
 
     @Override
     public List<ScheduleResponseDto> getAllSchedules() {
+        log.info("Fetching all schedules");
         scheduleAllQueryCounter.increment();
 
         try {
             List<Schedule> schedules = scheduleRepository.findAll();
             scheduleSuccessfulOperationsCounter.increment();
+            log.info("Successfully fetched {} total schedules", schedules.size());
             return convertToResponseDtoList(schedules);
         } catch (Exception e) {
             scheduleDatabaseErrorCounter.increment();
             scheduleGeneralErrorCounter.increment();
             scheduleFailedOperationsCounter.increment();
+            log.error("Failed to fetch all schedules: {}", e.getMessage(), e);
             throw e;
         }
     }
@@ -281,34 +321,39 @@ public class ScheduleServiceImpl implements ScheduleService {
 
         try {
             Schedule schedule = findScheduleById(scheduleId);
-
             scheduleSuccessfulOperationsCounter.increment();
-            return /* your availability check result */true;
+            // Your availability check logic here
+            return true;
         } catch (Exception e) {
             scheduleGeneralErrorCounter.increment();
             scheduleFailedOperationsCounter.increment();
+            log.error("Failed to check schedule availability for schedule: {} at {}: {}", 
+                    scheduleId, dateTime, e.getMessage());
             throw e;
         }
     }
 
     @Override
     public List<LocalDateTime> getAvailableDateTimesForSchedule(UUID scheduleId, int weeksAhead) {
+        log.info("Getting available times for schedule: {}, weeks ahead: {}", scheduleId, weeksAhead);
         scheduleAvailableTimesRequestCounter.increment();
 
         try {
             List<LocalDateTime> availableTimes = new ArrayList<>();
-
+            // Your logic here
             scheduleSuccessfulOperationsCounter.increment();
             return availableTimes;
         } catch (Exception e) {
             scheduleGeneralErrorCounter.increment();
             scheduleFailedOperationsCounter.increment();
+            log.error("Failed to get available times for schedule: {}: {}", scheduleId, e.getMessage(), e);
             throw e;
         }
     }
 
     @Override
     public List<ScheduleResponseDto> getAvailableSchedulesByCaregiver(UUID caregiverId) {
+        log.info("Fetching available schedules for caregiver: {}", caregiverId);
         scheduleAvailableByIdCounter.increment();
 
         try {
@@ -319,17 +364,20 @@ public class ScheduleServiceImpl implements ScheduleService {
                     .collect(Collectors.toList());
 
             scheduleSuccessfulOperationsCounter.increment();
+            log.info("Found {} available schedules for caregiver: {}", availableSchedules.size(), caregiverId);
             return convertToResponseDtoList(availableSchedules);
         } catch (Exception e) {
             scheduleDatabaseErrorCounter.increment();
             scheduleGeneralErrorCounter.increment();
             scheduleFailedOperationsCounter.increment();
+            log.error("Failed to fetch available schedules for caregiver: {}: {}", caregiverId, e.getMessage(), e);
             throw e;
         }
     }
 
     @Override
     public List<ScheduleResponseDto> getAvailableSchedulesForCaregivers(List<UUID> caregiverIds) {
+        log.info("Fetching available schedules for {} caregivers", caregiverIds.size());
         scheduleAvailableMultipleCounter.increment();
 
         try {
@@ -340,11 +388,13 @@ public class ScheduleServiceImpl implements ScheduleService {
                     .collect(Collectors.toList());
 
             scheduleSuccessfulOperationsCounter.increment();
+            log.info("Found {} available schedules for {} caregivers", availableSchedules.size(), caregiverIds.size());
             return convertToResponseDtoList(availableSchedules);
         } catch (Exception e) {
             scheduleDatabaseErrorCounter.increment();
             scheduleGeneralErrorCounter.increment();
             scheduleFailedOperationsCounter.increment();
+            log.error("Failed to fetch available schedules for caregivers: {}", e.getMessage(), e);
             throw e;
         }
     }
@@ -354,6 +404,7 @@ public class ScheduleServiceImpl implements ScheduleService {
             return scheduleRepository.findById(scheduleId)
                     .orElseThrow(() -> {
                         scheduleNotFoundCounter.increment();
+                        log.error("Schedule not found: {}", scheduleId);
                         return new IllegalArgumentException("Schedule not found with id: " + scheduleId);
                     });
         } catch (Exception e) {
@@ -379,6 +430,8 @@ public class ScheduleServiceImpl implements ScheduleService {
         );
 
         if (!conflictingSchedules.isEmpty()) {
+            log.warn("Schedule overlap detected for caregiver: {} on {} from {} to {}", 
+                    caregiverId, newSchedule.getDay(), newSchedule.getStartTime(), newSchedule.getEndTime());
             throw new ScheduleConflictException(
                     "Schedule conflicts with existing schedule(s). " +
                             "You already have a schedule on " + newSchedule.getDay() +
