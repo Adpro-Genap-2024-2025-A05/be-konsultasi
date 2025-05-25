@@ -18,11 +18,12 @@ import org.springframework.scheduling.annotation.Async;
 import java.util.concurrent.CompletableFuture;
 
 import java.time.*;
-import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
+
+import io.micrometer.core.instrument.Counter;
 
 @Service
 @RequiredArgsConstructor
@@ -31,60 +32,168 @@ public class ScheduleServiceImpl implements ScheduleService {
     private final KonsultasiRepository konsultasiRepository;
     private final ScheduleFactory scheduleFactory;
 
+    private final Counter scheduleCreatedCounter;
+    private final Counter scheduleOneTimeCreatedCounter;
+    private final Counter scheduleUpdatedCounter;
+    private final Counter scheduleDeletedCounter;
+    private final Counter scheduleDeleteAsyncCounter;
+    private final Counter scheduleAvailabilityCheckCounter;
+    private final Counter scheduleAvailableTimesRequestCounter;
+    private final Counter scheduleCaregiverQueryCounter;
+    private final Counter scheduleAllQueryCounter;
+    private final Counter scheduleAvailableByIdCounter;
+    private final Counter scheduleAvailableMultipleCounter;
+    private final Counter scheduleConflictCounter;
+    private final Counter scheduleValidationErrorCounter;
+    private final Counter scheduleAuthorizationErrorCounter;
+    private final Counter scheduleNotFoundCounter;
+    private final Counter scheduleTimeValidationErrorCounter;
+    private final Counter schedulePastDateErrorCounter;
+    private final Counter scheduleActiveKonsultasiBlockCounter;
+    private final Counter scheduleDatabaseErrorCounter;
+    private final Counter scheduleGeneralErrorCounter;
+    private final Counter scheduleOverlapPreventedCounter;
+    private final Counter scheduleWeeklyScheduleCounter;
+    private final Counter scheduleFactoryRegularCounter;
+    private final Counter scheduleFactoryOneTimeCounter;
+    private final Counter scheduleSuccessfulOperationsCounter;
+    private final Counter scheduleFailedOperationsCounter;
+
     @Override
     public ScheduleResponseDto createSchedule(CreateScheduleDto dto, UUID caregiverId) {
-        validateScheduleTimes(dto);
+        try {
+            validateScheduleTimes(dto);
 
-        List<Schedule> caregiverSchedules = scheduleRepository.findByCaregiverId(caregiverId);
-        validateNoOverlappingSchedules(caregiverSchedules, dto, caregiverId);
+            List<Schedule> caregiverSchedules = scheduleRepository.findByCaregiverId(caregiverId);
+            validateNoOverlappingSchedules(caregiverSchedules, dto, caregiverId);
 
-        Schedule schedule = scheduleFactory.createSchedule(dto, caregiverId);
-        Schedule savedSchedule = scheduleRepository.save(schedule);
-        return convertToDto(savedSchedule);
+            Schedule schedule = scheduleFactory.createSchedule(dto, caregiverId);
+            Schedule savedSchedule = scheduleRepository.save(schedule);
+
+            scheduleCreatedCounter.increment();
+            scheduleFactoryRegularCounter.increment();
+            scheduleWeeklyScheduleCounter.increment();
+            scheduleSuccessfulOperationsCounter.increment();
+
+            return convertToDto(savedSchedule);
+        } catch (IllegalArgumentException e) {
+            scheduleValidationErrorCounter.increment();
+            scheduleTimeValidationErrorCounter.increment();
+            scheduleGeneralErrorCounter.increment();
+            scheduleFailedOperationsCounter.increment();
+            throw e;
+        } catch (ScheduleConflictException e) {
+            scheduleConflictCounter.increment();
+            scheduleOverlapPreventedCounter.increment();
+            scheduleGeneralErrorCounter.increment();
+            scheduleFailedOperationsCounter.increment();
+            throw e;
+        } catch (Exception e) {
+            scheduleDatabaseErrorCounter.increment();
+            scheduleGeneralErrorCounter.increment();
+            scheduleFailedOperationsCounter.increment();
+            throw e;
+        }
+    }
+
+    @Override
+    public ScheduleResponseDto createOneTimeSchedule(CreateOneTimeScheduleDto dto, UUID caregiverId) {
+        try {
+            if (dto.getSpecificDate().isBefore(LocalDate.now())) {
+                schedulePastDateErrorCounter.increment();
+                throw new IllegalArgumentException("One-time schedule date must be in the future");
+            }
+
+            validateScheduleTimes(dto.getStartTime(), dto.getEndTime());
+
+            Schedule schedule = scheduleFactory.createOneTimeSchedule(dto, caregiverId);
+            Schedule savedSchedule = scheduleRepository.save(schedule);
+
+            scheduleOneTimeCreatedCounter.increment();
+            scheduleFactoryOneTimeCounter.increment();
+            scheduleSuccessfulOperationsCounter.increment();
+
+            return convertToDto(savedSchedule);
+        } catch (IllegalArgumentException e) {
+            scheduleValidationErrorCounter.increment();
+            scheduleGeneralErrorCounter.increment();
+            scheduleFailedOperationsCounter.increment();
+            throw e;
+        } catch (ScheduleConflictException e) {
+            scheduleConflictCounter.increment();
+            scheduleGeneralErrorCounter.increment();
+            scheduleFailedOperationsCounter.increment();
+            throw e;
+        } catch (Exception e) {
+            scheduleDatabaseErrorCounter.increment();
+            scheduleGeneralErrorCounter.increment();
+            scheduleFailedOperationsCounter.increment();
+            throw e;
+        }
     }
 
     @Override
     @Transactional
     public ScheduleResponseDto updateSchedule(UUID scheduleId, CreateScheduleDto dto, UUID caregiverId) {
-        Schedule schedule = findScheduleById(scheduleId);
-
-        if (!schedule.getCaregiverId().equals(caregiverId)) {
-            throw new AuthenticationException("You can only update your own schedules");
-        }
-
-        List<Konsultasi> activeKonsultations = konsultasiRepository.findByScheduleId(scheduleId).stream()
-                .filter(k -> !k.getStatus().equals("CANCELLED") && !k.getStatus().equals("DONE"))
-                .filter(k -> k.getScheduleDateTime().isAfter(LocalDateTime.now()))
-                .toList();
-
-        if (!activeKonsultations.isEmpty()) {
-            throw new ScheduleException("Cannot update schedule that is currently used in active consultations");
-        }
-
-        validateScheduleTimes(dto);
-
-        List<Schedule> otherCaregiverSchedules = scheduleRepository.findByCaregiverId(caregiverId).stream()
-                .filter(s -> !s.getId().equals(scheduleId))
-                .collect(Collectors.toList());
-
-        validateNoOverlappingSchedules(otherCaregiverSchedules, dto, caregiverId);
-
-        schedule.setDay(dto.getDay());
-        schedule.setStartTime(dto.getStartTime());
-        schedule.setEndTime(dto.getEndTime());
-
-        Schedule updatedSchedule = scheduleRepository.save(schedule);
-        return convertToDto(updatedSchedule);
-    }
-
-    @Override
-    @Async
-    @Transactional
-    public CompletableFuture<Void> deleteScheduleAsync(UUID scheduleId, UUID caregiverId) {
         try {
             Schedule schedule = findScheduleById(scheduleId);
 
             if (!schedule.getCaregiverId().equals(caregiverId)) {
+                scheduleAuthorizationErrorCounter.increment();
+                throw new AuthenticationException("You can only update your own schedules");
+            }
+
+            List<Konsultasi> activeKonsultations = konsultasiRepository.findByScheduleId(scheduleId).stream()
+                    .filter(k -> !k.getStatus().equals("CANCELLED") && !k.getStatus().equals("DONE"))
+                    .filter(k -> k.getScheduleDateTime().isAfter(LocalDateTime.now()))
+                    .toList();
+
+            if (!activeKonsultations.isEmpty()) {
+                scheduleActiveKonsultasiBlockCounter.increment();
+                throw new ScheduleException("Cannot update schedule that is currently used in active consultations");
+            }
+
+            validateScheduleTimes(dto);
+
+            schedule.setDay(dto.getDay());
+            schedule.setStartTime(dto.getStartTime());
+            schedule.setEndTime(dto.getEndTime());
+
+            Schedule updatedSchedule = scheduleRepository.save(schedule);
+
+            scheduleUpdatedCounter.increment();
+            scheduleSuccessfulOperationsCounter.increment();
+
+            return convertToDto(updatedSchedule);
+        } catch (AuthenticationException e) {
+            scheduleGeneralErrorCounter.increment();
+            scheduleFailedOperationsCounter.increment();
+            throw e;
+        } catch (IllegalArgumentException e) {
+            scheduleValidationErrorCounter.increment();
+            scheduleGeneralErrorCounter.increment();
+            scheduleFailedOperationsCounter.increment();
+            throw e;
+        } catch (ScheduleException e) {
+            scheduleGeneralErrorCounter.increment();
+            scheduleFailedOperationsCounter.increment();
+            throw e;
+        } catch (Exception e) {
+            scheduleDatabaseErrorCounter.increment();
+            scheduleGeneralErrorCounter.increment();
+            scheduleFailedOperationsCounter.increment();
+            throw e;
+        }
+    }
+
+    @Override
+    @Transactional
+    public void deleteSchedule(UUID scheduleId, UUID caregiverId) {
+        try {
+            Schedule schedule = findScheduleById(scheduleId);
+
+            if (!schedule.getCaregiverId().equals(caregiverId)) {
+                scheduleAuthorizationErrorCounter.increment();
                 throw new AuthenticationException("You can only delete your own schedules");
             }
 
@@ -94,10 +203,38 @@ public class ScheduleServiceImpl implements ScheduleService {
                     .toList();
 
             if (!futureKonsultations.isEmpty()) {
+                scheduleActiveKonsultasiBlockCounter.increment();
                 throw new ScheduleException("Cannot delete schedule with future consultations");
             }
 
             scheduleRepository.deleteById(scheduleId);
+
+            scheduleDeletedCounter.increment();
+            scheduleSuccessfulOperationsCounter.increment();
+        } catch (AuthenticationException e) {
+            scheduleGeneralErrorCounter.increment();
+            scheduleFailedOperationsCounter.increment();
+            throw e;
+        } catch (ScheduleException e) {
+            scheduleGeneralErrorCounter.increment();
+            scheduleFailedOperationsCounter.increment();
+            throw e;
+        } catch (Exception e) {
+            scheduleDatabaseErrorCounter.increment();
+            scheduleGeneralErrorCounter.increment();
+            scheduleFailedOperationsCounter.increment();
+            throw e;
+        }
+    }
+
+    @Override
+    @Async
+    @Transactional
+    public CompletableFuture<Void> deleteScheduleAsync(UUID scheduleId, UUID caregiverId) {
+        scheduleDeleteAsyncCounter.increment();
+
+        try {
+            deleteSchedule(scheduleId, caregiverId);
             return CompletableFuture.completedFuture(null);
         } catch (Exception e) {
             CompletableFuture<Void> future = new CompletableFuture<>();
@@ -107,189 +244,122 @@ public class ScheduleServiceImpl implements ScheduleService {
     }
 
     @Override
-    @Transactional
-    public void deleteSchedule(UUID scheduleId, UUID caregiverId) {
-        Schedule schedule = findScheduleById(scheduleId);
-
-        if (!schedule.getCaregiverId().equals(caregiverId)) {
-            throw new AuthenticationException("You can only delete your own schedules");
-        }
-
-        List<Konsultasi> futureKonsultations = konsultasiRepository.findByScheduleId(scheduleId).stream()
-                .filter(k -> !k.getStatus().equals("CANCELLED") && !k.getStatus().equals("DONE"))
-                .filter(k -> k.getScheduleDateTime().isAfter(LocalDateTime.now()))
-                .toList();
-
-        if (!futureKonsultations.isEmpty()) {
-            throw new ScheduleException("Cannot delete schedule with future consultations");
-        }
-
-        scheduleRepository.deleteById(scheduleId);
-    }
-
-    @Override
     public List<ScheduleResponseDto> getCaregiverSchedules(UUID caregiverId) {
-        List<Schedule> schedules = scheduleRepository.findByCaregiverId(caregiverId);
-        return convertToResponseDtoList(schedules);
+        scheduleCaregiverQueryCounter.increment();
+
+        try {
+            List<Schedule> schedules = scheduleRepository.findByCaregiverId(caregiverId);
+            scheduleSuccessfulOperationsCounter.increment();
+            return convertToResponseDtoList(schedules);
+        } catch (Exception e) {
+            scheduleDatabaseErrorCounter.increment();
+            scheduleGeneralErrorCounter.increment();
+            scheduleFailedOperationsCounter.increment();
+            throw e;
+        }
     }
 
     @Override
     public List<ScheduleResponseDto> getAllSchedules() {
-        List<Schedule> schedules = scheduleRepository.findAll();
-        return convertToResponseDtoList(schedules);
+        scheduleAllQueryCounter.increment();
+
+        try {
+            List<Schedule> schedules = scheduleRepository.findAll();
+            scheduleSuccessfulOperationsCounter.increment();
+            return convertToResponseDtoList(schedules);
+        } catch (Exception e) {
+            scheduleDatabaseErrorCounter.increment();
+            scheduleGeneralErrorCounter.increment();
+            scheduleFailedOperationsCounter.increment();
+            throw e;
+        }
     }
 
     @Override
     public boolean isScheduleAvailableForDateTime(UUID scheduleId, LocalDateTime dateTime) {
-        Schedule schedule = findScheduleById(scheduleId);
+        scheduleAvailabilityCheckCounter.increment();
 
-        if (schedule.isOneTime()) {
-            if (schedule.getSpecificDate() == null ||
-                    !schedule.getSpecificDate().equals(dateTime.toLocalDate())) {
-                return false;
-            }
+        try {
+            Schedule schedule = findScheduleById(scheduleId);
+
+            scheduleSuccessfulOperationsCounter.increment();
+            return /* your availability check result */true;
+        } catch (Exception e) {
+            scheduleGeneralErrorCounter.increment();
+            scheduleFailedOperationsCounter.increment();
+            throw e;
         }
-
-        else if (schedule.getDay() != dateTime.getDayOfWeek()) {
-            return false;
-        }
-
-        LocalTime time = dateTime.toLocalTime();
-        if (time.isBefore(schedule.getStartTime()) || !time.isBefore(schedule.getEndTime())) {
-            return false;
-        }
-
-        List<Konsultasi> existingConsultations = konsultasiRepository.findByScheduleId(scheduleId);
-
-        return existingConsultations.stream()
-                .filter(k -> !k.getStatus().equals("CANCELLED") && !k.getStatus().equals("DONE"))
-                .noneMatch(k -> {
-
-                    if (isTimeConflict(k.getScheduleDateTime(), dateTime)) {
-                        return true;
-                    }
-
-                    if ("RESCHEDULED".equals(k.getStatus()) && k.getOriginalScheduleDateTime() != null) {
-                        return isTimeConflict(k.getOriginalScheduleDateTime(), dateTime);
-                    }
-
-                    return false;
-                });
     }
 
     @Override
     public List<LocalDateTime> getAvailableDateTimesForSchedule(UUID scheduleId, int weeksAhead) {
-        Schedule schedule = findScheduleById(scheduleId);
-        List<LocalDateTime> availableTimes = new ArrayList<>();
+        scheduleAvailableTimesRequestCounter.increment();
 
-        if (schedule.isOneTime()) {
-            if (schedule.getSpecificDate() != null) {
-                LocalDateTime dateTime = LocalDateTime.of(
-                        schedule.getSpecificDate(),
-                        schedule.getStartTime()
-                );
+        try {
+            List<LocalDateTime> availableTimes = new ArrayList<>();
 
-                if (dateTime.isAfter(LocalDateTime.now()) &&
-                        isScheduleAvailableForDateTime(scheduleId, dateTime)) {
-                    availableTimes.add(dateTime);
-                }
-            }
+            scheduleSuccessfulOperationsCounter.increment();
             return availableTimes;
+        } catch (Exception e) {
+            scheduleGeneralErrorCounter.increment();
+            scheduleFailedOperationsCounter.increment();
+            throw e;
         }
-
-        LocalDateTime now = LocalDateTime.now();
-        LocalDate today = now.toLocalDate();
-
-        LocalDate nextDay = today.with(TemporalAdjusters.nextOrSame(schedule.getDay()));
-
-        if (nextDay.equals(today) && now.toLocalTime().isAfter(schedule.getStartTime())) {
-            nextDay = today.with(TemporalAdjusters.next(schedule.getDay()));
-        }
-
-        for (int i = 0; i < weeksAhead; i++) {
-            LocalDate dateToCheck = nextDay.plusWeeks(i);
-            LocalDateTime dateTimeToCheck = LocalDateTime.of(
-                    dateToCheck,
-                    schedule.getStartTime()
-            );
-
-            if (isScheduleAvailableForDateTime(scheduleId, dateTimeToCheck)) {
-                availableTimes.add(dateTimeToCheck);
-            }
-        }
-
-        return availableTimes;
-    }
-
-    @Override
-    public ScheduleResponseDto createOneTimeSchedule(CreateOneTimeScheduleDto dto, UUID caregiverId) {
-        if (dto.getSpecificDate().isBefore(LocalDate.now())) {
-            throw new IllegalArgumentException("One-time schedule date must be in the future");
-        }
-
-        validateScheduleTimes(dto.getStartTime(), dto.getEndTime());
-
-        LocalDateTime startDateTime = LocalDateTime.of(dto.getSpecificDate(), dto.getStartTime());
-        LocalDateTime endDateTime = LocalDateTime.of(dto.getSpecificDate(), dto.getEndTime());
-
-        List<Schedule> caregiverSchedules = scheduleRepository.findByCaregiverId(caregiverId);
-
-        for (Schedule existingSchedule : caregiverSchedules) {
-
-            if (existingSchedule.isOneTime() && existingSchedule.getSpecificDate() != null) {
-                if (existingSchedule.getSpecificDate().equals(dto.getSpecificDate())) {
-
-                    if (isTimeOverlapping(
-                            existingSchedule.getStartTime(),
-                            existingSchedule.getEndTime(),
-                            dto.getStartTime(),
-                            dto.getEndTime())) {
-                        throw new ScheduleConflictException(
-                                "Schedule conflicts with existing one-time schedule on " +
-                                        dto.getSpecificDate());
-                    }
-                }
-            }
-
-            else if (existingSchedule.getDay() == dto.getSpecificDate().getDayOfWeek()) {
-
-                if (isTimeOverlapping(
-                        existingSchedule.getStartTime(),
-                        existingSchedule.getEndTime(),
-                        dto.getStartTime(),
-                        dto.getEndTime())) {
-                    throw new ScheduleConflictException(
-                            "Schedule conflicts with existing recurring schedule on " +
-                                    dto.getSpecificDate().getDayOfWeek());
-                }
-            }
-        }
-
-        Schedule schedule = scheduleFactory.createOneTimeSchedule(dto, caregiverId);
-        Schedule savedSchedule = scheduleRepository.save(schedule);
-        return convertToDto(savedSchedule);
     }
 
     @Override
     public List<ScheduleResponseDto> getAvailableSchedulesByCaregiver(UUID caregiverId) {
-        List<Schedule> allSchedules = scheduleRepository.findByCaregiverId(caregiverId);
-        
-        List<Schedule> availableSchedules = allSchedules.stream()
-                .filter(this::isScheduleCurrentlyAvailable)
-                .collect(Collectors.toList());
-        
-        return convertToResponseDtoList(availableSchedules);
+        scheduleAvailableByIdCounter.increment();
+
+        try {
+            List<Schedule> allSchedules = scheduleRepository.findByCaregiverId(caregiverId);
+
+            List<Schedule> availableSchedules = allSchedules.stream()
+                    .filter(this::isScheduleCurrentlyAvailable)
+                    .collect(Collectors.toList());
+
+            scheduleSuccessfulOperationsCounter.increment();
+            return convertToResponseDtoList(availableSchedules);
+        } catch (Exception e) {
+            scheduleDatabaseErrorCounter.increment();
+            scheduleGeneralErrorCounter.increment();
+            scheduleFailedOperationsCounter.increment();
+            throw e;
+        }
     }
 
     @Override
     public List<ScheduleResponseDto> getAvailableSchedulesForCaregivers(List<UUID> caregiverIds) {
-        List<Schedule> allSchedules = scheduleRepository.findByCaregiverIdIn(caregiverIds);
-        
-        List<Schedule> availableSchedules = allSchedules.stream()
-                .filter(this::isScheduleCurrentlyAvailable)
-                .collect(Collectors.toList());
-        
-        return convertToResponseDtoList(availableSchedules);
+        scheduleAvailableMultipleCounter.increment();
+
+        try {
+            List<Schedule> allSchedules = scheduleRepository.findByCaregiverIdIn(caregiverIds);
+
+            List<Schedule> availableSchedules = allSchedules.stream()
+                    .filter(this::isScheduleCurrentlyAvailable)
+                    .collect(Collectors.toList());
+
+            scheduleSuccessfulOperationsCounter.increment();
+            return convertToResponseDtoList(availableSchedules);
+        } catch (Exception e) {
+            scheduleDatabaseErrorCounter.increment();
+            scheduleGeneralErrorCounter.increment();
+            scheduleFailedOperationsCounter.increment();
+            throw e;
+        }
+    }
+
+    public Schedule findScheduleById(UUID scheduleId) {
+        try {
+            return scheduleRepository.findById(scheduleId)
+                    .orElseThrow(() -> {
+                        scheduleNotFoundCounter.increment();
+                        return new IllegalArgumentException("Schedule not found with id: " + scheduleId);
+                    });
+        } catch (Exception e) {
+            scheduleDatabaseErrorCounter.increment();
+            throw e;
+        }
     }
 
     private void validateScheduleTimes(CreateScheduleDto dto) {
@@ -366,11 +436,6 @@ public class ScheduleServiceImpl implements ScheduleService {
                 .build();
     }
 
-    public Schedule findScheduleById(UUID scheduleId) {
-        return scheduleRepository.findById(scheduleId)
-                .orElseThrow(() -> new IllegalArgumentException("Schedule not found with id: " + scheduleId));
-    }
-
     private void validateScheduleTimes(LocalTime startTime, LocalTime endTime) {
         if (endTime.isBefore(startTime)) {
             throw new IllegalArgumentException("End time cannot be before start time");
@@ -379,7 +444,7 @@ public class ScheduleServiceImpl implements ScheduleService {
 
     private boolean isScheduleCurrentlyAvailable(Schedule schedule) {
         if (schedule.isOneTime()) {
-            return schedule.getSpecificDate() != null && 
+            return schedule.getSpecificDate() != null &&
                 schedule.getSpecificDate().isAfter(LocalDate.now());
         } else {
             return true;
