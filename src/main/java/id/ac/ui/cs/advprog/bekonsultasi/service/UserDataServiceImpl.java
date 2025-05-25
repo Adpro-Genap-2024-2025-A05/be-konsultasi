@@ -83,11 +83,16 @@ public class UserDataServiceImpl implements UserDataService {
         return fetchPacilianFromService(pacilianId);
     }
 
+
     @Override
     public CaregiverPublicDto getCaregiverById(UUID caregiverId) {
         log.info("Sync fetching caregiver data for ID: {}", caregiverId);
         try {
             return getCaregiverByIdAsync(caregiverId).get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.warn("Thread interrupted while fetching caregiver data for ID: {}", caregiverId);
+            return handleCaregiverFetchError(caregiverId, e);
         } catch (Exception e) {
             return handleCaregiverFetchError(caregiverId, e);
         }
@@ -98,6 +103,10 @@ public class UserDataServiceImpl implements UserDataService {
         log.info("Sync fetching pacilian data for ID: {}", pacilianId);
         try {
             return getPacilianByIdAsync(pacilianId).get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.warn("Thread interrupted while fetching pacilian data for ID: {}", pacilianId);
+            return handlePacilianFetchError(pacilianId, e);
         } catch (Exception e) {
             return handlePacilianFetchError(pacilianId, e);
         }
