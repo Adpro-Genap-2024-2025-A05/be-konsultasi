@@ -1,8 +1,89 @@
-# Deployment
+# C4 Model of the Current Architecture
 
-Link: [BE-Konsultasi Deployment](https://positive-sheela-be-konsultasii-9cb5c398.koyeb.app/)
+## Context Diagram
+
+![Context Diagram](./images/context-diagram.png)
+
+## Container Diagram
+
+![Container Diagram](./images/container-diagram.png)
+
+## Deployment Diagram
+
+![Deployment Diagram](./images/deployment-diagram.png)
+
+## Risk Analysis & Architecture Modification
+
+![Risk Analysis](./images/risk-analysis.png)
+
+**1. Risiko Kebocoran Kredensial Database** \
+Kebocoran kredensial database bisa mengakibatkan seluruh data pasien dan medis yang sensitif terbuka untuk pihak tidak bertanggung jawab.
+
+Mitigasi: Pada desain yang dimodifikasi ditambahkan lapisan Security Service yang khusus menangani validasi akses dan audit trail setiap transaksi database. Selain itu, kredensial database juga disimpan terpisah melalui sistem API Gateway yang berfungsi sebagai perantara antara aplikasi dan database, sehingga mengurangi eksposur langsung ke kredensial database.
+
+**2. Risiko Single Point of Failure pada Single Page Application** \
+Desain sebelumnya menunjukkan bahwa seluruh aksesibilitas sistem bergantung pada satu aplikasi SPA, yang bisa menjadi single point of failure jika terjadi masalah pada container tersebut.
+
+Mitigasi: Desain baru memperkenalkan arsitektur failover dengan menambahkan Backup SPA yang dapat mengambil alih jika SPA utama mengalami kegagalan. Selain itu, desain baru juga mengimplementasikan load balancer untuk SPA utama, sehingga traffic dapat didistribusikan secara merata dan mengurangi beban pada single point.
+
+# Individu (Bastian Adiputra Siregar)
+
+## Component Diagram
+
+![Component Diagram Bastian](./images/component-diagram-bastian.png)
+
+## Code Diagram
+
+![Code Diagram Bastian](./images/code-diagram-bastian.png)
+
+# Individu Progress 90% (Bastian Adiputra Siregar)
+
+## Profiling
+
+![Profiling 1](./images/profiling-bastian1.png)
+
+![Profiling 2](./images/profiling-bastian2.png)
+
+## Monitoring
+
+![Monitoring Grafana](./images/monitoring-bastian1.png)
+
+![Monitoring Prometheus](./images/monitoring-bastian2.png)
+
+# Individu (Steven Setiawan)
+
+## Component Diagram
+
+![Component Diagram Steven](./images/component-diagram-steven.png)
+
+## Code Diagram
+
+![Code Diagram Steven](./images/code-diagram-steven.png)
+
+
+# Individu Progress 90% (Steven Setiawan)
+
+## Profiling
+
+![Profiling Before](./images/profiling-steven-before.jpg)
+
+![Code Before](./images/code-steven-before.jpg)
+
+![Profiling After](./images/profiling-steven-after.jpg)
+
+![Code After](./images/code-steven-after.jpg)
+
+## Monitoring
+
+![Monitoring Grafana](./images/monitoring-steven1.jpg)
+
+![Monitoring Prometheus](./images/monitoring-steven2.jpg)
 
 # Schedule Component - BE-Konsultasi Service
+
+# Deployment
+
+Link: [BE-Konsultasi Deployment](http://52.202.150.103/)
 
 ## Overview
 - Dokter dapat membuat jadwal (hari dan jam) mingguan baru dengan status available. (C)
@@ -29,6 +110,8 @@ Komponen Schedule menggunakan State Pattern untuk mengelola berbagai status jadw
 - Setiap status meng-encapsulate behavior yang sesuai
 - State menangani transisi antar status
 
+State Pattern dipilih karena jadwal konsultasi memiliki beberapa status yang berbeda (Available, Booked, Unavailable) dengan perilaku yang berbeda-beda. Dengan menggunakan pattern ini, kita dapat menghindari penggunaan if-else atau switch statements yang panjang dan kompleks. Pattern ini memungkinkan kita untuk dengan mudah menambahkan status baru tanpa mengubah kode yang sudah ada, sehingga meningkatkan maintainability dan extensibility dari sistem.
+
 ### 2. Factory Pattern
 Factory Pattern digunakan untuk membuat instance Schedule:
 - Interface `ScheduleFactory` mendefinisikan creation methods
@@ -36,12 +119,16 @@ Factory Pattern digunakan untuk membuat instance Schedule:
 - Memastikan jadwal dibuat secara konsisten
 - Memusatkan creation logic dalam satu komponen
 
+Factory Pattern diimplementasikan karena pembuatan objek Schedule memerlukan beberapa langkah, terutama untuk menetapkan state yang sesuai. Dengan menggunakan pattern ini, kita dapat menyembunyikan kompleksitas pembuatan objek dari client dan memastikan bahwa setiap jadwal dibuat dengan state yang tepat. Pattern ini juga memungkinkan kita untuk memusatkan logika pembuatan objek di satu tempat, sehingga jika ada perubahan dalam cara membuat Schedule, kita hanya perlu mengubah kode di satu tempat.
+
 ### 3. Builder Pattern
 Builder Pattern (melalui anotasi Lombok `@Builder`) digunakan untuk membangun objek Schedule:
 - Memungkinkan pembuatan complex objects dengan multiple fields
 - Meningkatkan code readability dan maintainability
 - Mendukung immutability jika diperlukan
 - Menyederhanakan pembuatan objek saat testing
+
+Builder Pattern dipilih karena objek Schedule memiliki beberapa field yang harus diinisialisasi. Pattern ini membuat kode lebih bersih dan mudah dibaca dengan memungkinkan pembuatan objek secara step-by-step. Dengan menggunakan Lombok `@Builder`, kita dapat mengurangi boilerplate code yang diperlukan untuk implementasi builder. Pattern ini sangat membantu saat membuat objek untuk unit testing, di mana kita perlu membuat berbagai objek Schedule dengan nilai yang berbeda-beda. Selain itu, pattern ini memungkinkan kita untuk menciptakan objek yang immutable, yang meningkatkan thread safety dan mengurangi bug yang terkait dengan perubahan state yang tidak diinginkan.
 
 ## Project Structure (for now)
 
@@ -61,6 +148,8 @@ Builder Pattern (melalui anotasi Lombok `@Builder`) digunakan untuk membangun ob
 
 ### Service Layer
 - `ScheduleService.java`: Interface yang mendefinisikan business operations
+- `ScheduleServiceImpl.java`: Service implementation untuk mengelola jadwal  
+
 - `ScheduleServiceImpl.java`: Service implementation untuk mengelola jadwal
 
 # Konsultasi Component - BE-Konsultasi Service
@@ -123,7 +212,6 @@ Builder Pattern (melalui anotasi Lombok `@Builder`) digunakan untuk membangun ob
 ### Model Layer
 
 - `Konsultasi.java`: Model utama yang menyimpan data konsultasi dan state saat ini
-- `KonsultasiHistory.java`: Model untuk mencatat perubahan status konsultasi 
 - `state/KonsultasiState.java`: Interface untuk State Pattern 
 - `state/RequestedState.java`: Status permintaan awal 
 - `state/ConfirmedState.java`: Status setelah dikonfirmasi dokter 
@@ -133,7 +221,6 @@ Builder Pattern (melalui anotasi Lombok `@Builder`) digunakan untuk membangun ob
 ### Repository Layer
 
 - `KonsultasiRepository.java`: Menangani penyimpanan dan pengambilan data konsultasi 
-- `KonsultasiHistoryRepository.java`: Menangani penyimpanan dan pengambilan data history
 
 ### Service Layer
 

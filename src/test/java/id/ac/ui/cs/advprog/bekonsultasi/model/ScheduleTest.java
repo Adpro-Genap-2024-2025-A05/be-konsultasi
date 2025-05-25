@@ -1,54 +1,88 @@
 package id.ac.ui.cs.advprog.bekonsultasi.model;
 
-import id.ac.ui.cs.advprog.bekonsultasi.model.ScheduleState.BookedState;
 import org.junit.jupiter.api.Test;
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.UUID;
+
 import static org.junit.jupiter.api.Assertions.*;
 
-public class ScheduleTest {
+class ScheduleTest {
 
     @Test
-    public void testScheduleCreation() {
-        // Arrange
-        UUID id = UUID.randomUUID();
+    void testBuildSchedule() {
         UUID caregiverId = UUID.randomUUID();
-        String day = "Monday";
-        String time = "10:00";
-        String status = "Available";
+        DayOfWeek day = DayOfWeek.MONDAY;
+        LocalTime startTime = LocalTime.of(10, 0);
+        LocalTime endTime = LocalTime.of(11, 0);
 
-        // Act
         Schedule schedule = Schedule.builder()
-                .id(id)
                 .caregiverId(caregiverId)
                 .day(day)
-                .time(time)
-                .status(status)
+                .startTime(startTime)
+                .endTime(endTime)
+                .oneTime(false)
                 .build();
 
-        // Assert
-        assertEquals(id, schedule.getId());
         assertEquals(caregiverId, schedule.getCaregiverId());
         assertEquals(day, schedule.getDay());
-        assertEquals(time, schedule.getTime());
-        assertEquals(status, schedule.getStatus());
+        assertEquals(startTime, schedule.getStartTime());
+        assertEquals(endTime, schedule.getEndTime());
+        assertFalse(schedule.isOneTime());
+        assertNull(schedule.getSpecificDate());
     }
 
     @Test
-    public void testChangeStatus() {
-        // Arrange
+    void testBuildOneTimeSchedule() {
+        UUID caregiverId = UUID.randomUUID();
+        DayOfWeek day = DayOfWeek.MONDAY;
+        LocalTime startTime = LocalTime.of(10, 0);
+        LocalTime endTime = LocalTime.of(11, 0);
+        LocalDate specificDate = LocalDate.of(2025, 6, 2);
+
         Schedule schedule = Schedule.builder()
-                .id(UUID.randomUUID())
-                .caregiverId(UUID.randomUUID())
-                .day("Monday")
-                .time("10:00")
-                .status("Available")
+                .caregiverId(caregiverId)
+                .day(day)
+                .startTime(startTime)
+                .endTime(endTime)
+                .specificDate(specificDate)
+                .oneTime(true)
                 .build();
 
-        // Act
-        schedule.changeStatus("Booked");
+        assertEquals(caregiverId, schedule.getCaregiverId());
+        assertEquals(day, schedule.getDay());
+        assertEquals(startTime, schedule.getStartTime());
+        assertEquals(endTime, schedule.getEndTime());
+        assertTrue(schedule.isOneTime());
+        assertEquals(specificDate, schedule.getSpecificDate());
+    }
 
-        // Assert
-        assertEquals("Booked", schedule.getStatus());
-        assertTrue(schedule.getState() instanceof BookedState);
+    @Test
+    void testSettersAndGetters() {
+        Schedule schedule = new Schedule();
+
+        UUID id = UUID.randomUUID();
+        UUID caregiverId = UUID.randomUUID();
+        DayOfWeek day = DayOfWeek.MONDAY;
+        LocalTime startTime = LocalTime.of(10, 0);
+        LocalTime endTime = LocalTime.of(11, 0);
+        LocalDate specificDate = LocalDate.of(2025, 6, 2);
+
+        schedule.setId(id);
+        schedule.setCaregiverId(caregiverId);
+        schedule.setDay(day);
+        schedule.setStartTime(startTime);
+        schedule.setEndTime(endTime);
+        schedule.setSpecificDate(specificDate);
+        schedule.setOneTime(true);
+
+        assertEquals(id, schedule.getId());
+        assertEquals(caregiverId, schedule.getCaregiverId());
+        assertEquals(day, schedule.getDay());
+        assertEquals(startTime, schedule.getStartTime());
+        assertEquals(endTime, schedule.getEndTime());
+        assertEquals(specificDate, schedule.getSpecificDate());
+        assertTrue(schedule.isOneTime());
     }
 }
