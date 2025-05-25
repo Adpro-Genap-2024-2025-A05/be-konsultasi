@@ -8,19 +8,19 @@ import org.springframework.web.client.RestTemplate;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @SpringBootTest
-public class RestTemplateConfigTest {
+class RestTemplateConfigTest {
 
     @Autowired
     private RestTemplateConfig restTemplateConfig;
 
     @Test
-    public void testRestTemplateCreation() {
+    void testRestTemplateCreation() {
         RestTemplate restTemplate = restTemplateConfig.restTemplate();
         assertNotNull(restTemplate);
     }
     
     @Test
-    public void testRestTemplateAutowiring() {
+    void testRestTemplateAutowiring() {
         assertNotNull(restTemplateConfig);
     }
 }

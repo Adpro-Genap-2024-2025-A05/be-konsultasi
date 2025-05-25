@@ -304,7 +304,7 @@ public class ScheduleServiceImpl implements ScheduleService {
         scheduleAvailabilityCheckCounter.increment();
 
         try {
-            Schedule schedule = findScheduleById(scheduleId);
+            findScheduleById(scheduleId);
 
             scheduleSuccessfulOperationsCounter.increment();
             return true;
@@ -345,7 +345,7 @@ public class ScheduleServiceImpl implements ScheduleService {
 
             List<Schedule> availableSchedules = allSchedules.stream()
                     .filter(this::isScheduleCurrentlyAvailable)
-                    .collect(Collectors.toList());
+                    .toList();
 
             scheduleSuccessfulOperationsCounter.increment();
             log.info("Found {} available schedules for caregiver: {}", availableSchedules.size(), caregiverId);
@@ -369,7 +369,7 @@ public class ScheduleServiceImpl implements ScheduleService {
 
             List<Schedule> availableSchedules = allSchedules.stream()
                     .filter(this::isScheduleCurrentlyAvailable)
-                    .collect(Collectors.toList());
+                    .toList();
 
             scheduleSuccessfulOperationsCounter.increment();
             log.info("Found {} available schedules for {} caregivers", availableSchedules.size(), caregiverIds.size());
@@ -436,7 +436,7 @@ public class ScheduleServiceImpl implements ScheduleService {
                         schedule.getEndTime(),
                         startTime,
                         endTime))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     private boolean isTimeOverlapping(LocalTime existingStart,
@@ -446,13 +446,6 @@ public class ScheduleServiceImpl implements ScheduleService {
         return (newStart.isBefore(existingEnd) && newEnd.isAfter(existingStart)) ||
                 newStart.equals(existingStart) ||
                 newEnd.equals(existingEnd);
-    }
-
-    private boolean isTimeConflict(LocalDateTime time1, LocalDateTime time2) {
-        LocalDateTime end1 = time1.plusHours(1);
-        LocalDateTime end2 = time2.plusHours(1);
-
-        return time1.isBefore(end2) && time2.isBefore(end1);
     }
 
     private List<ScheduleResponseDto> convertToResponseDtoList(List<Schedule> schedules) {

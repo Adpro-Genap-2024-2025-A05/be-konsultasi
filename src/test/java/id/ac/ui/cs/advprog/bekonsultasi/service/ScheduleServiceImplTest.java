@@ -356,8 +356,9 @@ class ScheduleServiceImplTest {
     void isScheduleAvailableForDateTime_ScheduleNotFound_ThrowsException() {
         when(scheduleRepository.findById(scheduleId)).thenReturn(Optional.empty());
 
+        LocalDateTime testDateTime = LocalDateTime.now();
         assertThrows(IllegalArgumentException.class,
-                () -> scheduleService.isScheduleAvailableForDateTime(scheduleId, LocalDateTime.now()));
+                () -> scheduleService.isScheduleAvailableForDateTime(scheduleId, testDateTime));
     }
 
     @Test
