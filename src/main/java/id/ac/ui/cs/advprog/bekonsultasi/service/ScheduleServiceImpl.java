@@ -187,14 +187,18 @@ public class ScheduleServiceImpl implements ScheduleService {
     }
 
     @Override
+    @Async
     @Transactional
-    public void deleteSchedule(UUID scheduleId, UUID caregiverId) {
+    public CompletableFuture<Void> deleteScheduleAsync(UUID scheduleId, UUID caregiverId) {
+        scheduleDeleteAsyncCounter.increment();
+
         try {
             Schedule schedule = findScheduleById(scheduleId);
 
             if (!schedule.getCaregiverId().equals(caregiverId)) {
                 scheduleAuthorizationErrorCounter.increment();
-                throw new AuthenticationException("You can only delete your own schedules");
+                return CompletableFuture.failedFuture(
+                        new AuthenticationException("You can only delete your own schedules"));
             }
 
             List<Konsultasi> futureKonsultations = konsultasiRepository.findByScheduleId(scheduleId).stream()
@@ -204,42 +208,27 @@ public class ScheduleServiceImpl implements ScheduleService {
 
             if (!futureKonsultations.isEmpty()) {
                 scheduleActiveKonsultasiBlockCounter.increment();
-                throw new ScheduleException("Cannot delete schedule with future consultations");
+                return CompletableFuture.failedFuture(
+                        new ScheduleException("Cannot delete schedule with future consultations"));
             }
 
             scheduleRepository.deleteById(scheduleId);
 
             scheduleDeletedCounter.increment();
             scheduleSuccessfulOperationsCounter.increment();
-        } catch (AuthenticationException e) {
-            scheduleGeneralErrorCounter.increment();
-            scheduleFailedOperationsCounter.increment();
-            throw e;
-        } catch (ScheduleException e) {
-            scheduleGeneralErrorCounter.increment();
-            scheduleFailedOperationsCounter.increment();
-            throw e;
-        } catch (Exception e) {
-            scheduleDatabaseErrorCounter.increment();
-            scheduleGeneralErrorCounter.increment();
-            scheduleFailedOperationsCounter.increment();
-            throw e;
-        }
-    }
-
-    @Override
-    @Async
-    @Transactional
-    public CompletableFuture<Void> deleteScheduleAsync(UUID scheduleId, UUID caregiverId) {
-        scheduleDeleteAsyncCounter.increment();
-
-        try {
-            deleteSchedule(scheduleId, caregiverId);
             return CompletableFuture.completedFuture(null);
         } catch (Exception e) {
-            CompletableFuture<Void> future = new CompletableFuture<>();
-            future.completeExceptionally(e);
-            return future;
+            if (e instanceof AuthenticationException) {
+                scheduleAuthorizationErrorCounter.increment();
+            } else if (e instanceof ScheduleException) {
+                scheduleActiveKonsultasiBlockCounter.increment();
+            } else {
+                scheduleDatabaseErrorCounter.increment();
+            }
+
+            scheduleGeneralErrorCounter.increment();
+            scheduleFailedOperationsCounter.increment();
+            return CompletableFuture.failedFuture(e);
         }
     }
 

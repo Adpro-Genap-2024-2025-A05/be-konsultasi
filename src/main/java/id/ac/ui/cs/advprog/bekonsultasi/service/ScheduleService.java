@@ -13,7 +13,6 @@ public interface ScheduleService {
     ScheduleResponseDto createSchedule(CreateScheduleDto dto, UUID caregiverId);
     ScheduleResponseDto createOneTimeSchedule(CreateOneTimeScheduleDto dto, UUID caregiverId);
     ScheduleResponseDto updateSchedule(UUID scheduleId, CreateScheduleDto dto, UUID caregiverId);
-    void deleteSchedule(UUID scheduleId, UUID caregiverId);
     List<ScheduleResponseDto> getCaregiverSchedules(UUID caregiverId);
     List<ScheduleResponseDto> getAllSchedules();
     boolean isScheduleAvailableForDateTime(UUID scheduleId, LocalDateTime dateTime);
