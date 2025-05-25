@@ -58,8 +58,19 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v4
 
+      - name: Generate version tag
+        id: version
+        run: |
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            VERSION="v$(date +%Y%m%d)-${GITHUB_SHA::7}"
+          else
+            VERSION="dev-$(date +%Y%m%d)-${GITHUB_SHA::7}"
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Generated version: $VERSION"
+
       - name: Log in to Docker Hub
-        uses: docker/login-action@v1
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
@@ -68,7 +79,9 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           push: true
-          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}:latest
+          tags: |
+            ${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}:${{ steps.version.outputs.VERSION }}
+            ${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}:latest
 
       - name: Releasing New Version
         uses: appleboy/ssh-action@v1.2.0
@@ -77,18 +90,23 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_KEY }}
           script: |
+            VERSION="${{ steps.version.outputs.VERSION }}"
+            
             docker stop postgres_db web_server || true
             docker rm postgres_db web_server || true
             
-            docker rmi $(docker images -a -q) || true
+            # Clean up old images (keep last 5 versions)
+            docker images ${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }} --format "table {{.Tag}}\t{{.CreatedAt}}" | grep -v "latest" | tail -n +6 | awk '{print $1}' | xargs -I {} docker rmi ${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}:{} || true
+            
             docker login -u ${{ secrets.DOCKER_HUB_USERNAME }} -p ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
-            docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}:latest
+            docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}:$VERSION
             
             cat > .env << EOL
             POSTGRES_USER=${{ secrets.POSTGRES_USER }}
             POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
             AUTH_SERVICE_URL=${{ secrets.AUTH_SERVICE_URL }}
             JWT_SECRET=${{ secrets.JWT_SECRET }}
+            CURRENT_VERSION=$VERSION
             EOL
             
             chmod 600 .env
@@ -118,6 +136,7 @@ jobs:
               -e POSTGRES_PASSWORD=${POSTGRES_PASSWORD} \
               -e SPRING_JPA_HIBERNATE_DDL_AUTO=update \
               --restart always \
-              ${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}:latest
+              ${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}:$VERSION
             
+            echo "Deployed version: $VERSION"
             docker ps
