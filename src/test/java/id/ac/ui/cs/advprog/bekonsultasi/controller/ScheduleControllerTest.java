@@ -431,7 +431,7 @@ class ScheduleControllerTest {
 
         assertEquals("Only caregivers can delete schedules", exception.getMessage());
 
-        verify(scheduleService, never()).deleteSchedule(any(), any());
+        verify(scheduleService, never()).deleteScheduleAsync(any(), any());
     }
 
     @Test

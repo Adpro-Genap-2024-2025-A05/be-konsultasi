@@ -25,6 +25,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -249,7 +250,7 @@ class ScheduleServiceImplTest {
         when(scheduleRepository.findById(scheduleId)).thenReturn(Optional.of(schedule));
         when(konsultasiRepository.findByScheduleId(scheduleId)).thenReturn(Collections.emptyList());
 
-        scheduleService.deleteSchedule(scheduleId, caregiverId);
+        scheduleService.deleteScheduleAsync(scheduleId, caregiverId);
 
         verify(scheduleRepository).deleteById(scheduleId);
     }
@@ -259,8 +260,13 @@ class ScheduleServiceImplTest {
         UUID wrongCaregiverId = UUID.randomUUID();
         when(scheduleRepository.findById(scheduleId)).thenReturn(Optional.of(schedule));
 
-        assertThrows(AuthenticationException.class,
-                () -> scheduleService.deleteSchedule(scheduleId, wrongCaregiverId));
+        CompletableFuture<Void> result = scheduleService.deleteScheduleAsync(scheduleId, wrongCaregiverId);
+
+        assertTrue(result.isCompletedExceptionally());
+
+        ExecutionException exception = assertThrows(ExecutionException.class, result::get);
+        assertInstanceOf(AuthenticationException.class, exception.getCause());
+        assertEquals("You can only delete your own schedules", exception.getCause().getMessage());
     }
 
     @Test
@@ -273,8 +279,13 @@ class ScheduleServiceImplTest {
         when(konsultasiRepository.findByScheduleId(scheduleId))
                 .thenReturn(Collections.singletonList(futureKonsultasi));
 
-        assertThrows(ScheduleException.class,
-                () -> scheduleService.deleteSchedule(scheduleId, caregiverId));
+        CompletableFuture<Void> result = scheduleService.deleteScheduleAsync(scheduleId, caregiverId);
+
+        assertTrue(result.isCompletedExceptionally());
+
+        ExecutionException exception = assertThrows(ExecutionException.class, result::get);
+        assertInstanceOf(ScheduleException.class, exception.getCause());
+        assertEquals("Cannot delete schedule with future consultations", exception.getCause().getMessage());
     }
 
     @Test
