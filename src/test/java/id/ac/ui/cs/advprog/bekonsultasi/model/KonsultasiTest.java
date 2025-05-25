@@ -190,4 +190,15 @@ class KonsultasiTest {
             return this.scheduleDateTime;
         }
     }
+
+    @Test
+    void testOnUpdate_WhenLastUpdatedIsNull() {
+        konsultasi.setLastUpdated(null);
+
+        konsultasi.onUpdate();
+
+        assertNotNull(konsultasi.getLastUpdated());
+        assertTrue(konsultasi.getLastUpdated().isBefore(LocalDateTime.now().plusSeconds(1)));
+        assertTrue(konsultasi.getLastUpdated().isAfter(LocalDateTime.now().minusSeconds(1)));
+    }
 }
