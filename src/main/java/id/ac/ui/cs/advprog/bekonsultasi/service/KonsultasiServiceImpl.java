@@ -8,6 +8,7 @@ import id.ac.ui.cs.advprog.bekonsultasi.model.Schedule;
 import id.ac.ui.cs.advprog.bekonsultasi.repository.KonsultasiRepository;
 import id.ac.ui.cs.advprog.bekonsultasi.repository.ScheduleRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +25,7 @@ import io.micrometer.core.instrument.Counter;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class KonsultasiServiceImpl implements KonsultasiService {
     private final KonsultasiRepository konsultasiRepository;
     private final ScheduleRepository scheduleRepository;
@@ -55,6 +57,8 @@ public class KonsultasiServiceImpl implements KonsultasiService {
     @Override
     @Transactional
     public KonsultasiResponseDto createKonsultasi(CreateKonsultasiDto dto, UUID pacilianId) {
+        log.info("Creating konsultasi for pacilian: {}, schedule: {}", pacilianId, dto.getScheduleId());
+        
         return executeWithErrorHandling(() -> {
             Schedule schedule = findScheduleById(dto.getScheduleId());
             LocalDateTime scheduleDateTime = dto.getScheduleDateTime();
@@ -66,6 +70,7 @@ public class KonsultasiServiceImpl implements KonsultasiService {
             Konsultasi savedKonsultasi = konsultasiRepository.save(konsultasi);
             
             konsultasiCreatedCounter.increment();
+            log.info("Successfully created konsultasi: {}", savedKonsultasi.getId());
             return convertToResponseDto(savedKonsultasi);
         });
     }
@@ -73,6 +78,8 @@ public class KonsultasiServiceImpl implements KonsultasiService {
     @Override
     @Transactional
     public KonsultasiResponseDto confirmKonsultasi(UUID konsultasiId, UUID caregiverId) {
+        log.info("Confirming konsultasi: {} by caregiver: {}", konsultasiId, caregiverId);
+        
         return executeWithErrorHandling(() -> {
             Konsultasi konsultasi = findKonsultasiById(konsultasiId);
             validateUserRoleAndOwnership(konsultasi, caregiverId, CAREGIVER_ROLE);
@@ -81,6 +88,7 @@ public class KonsultasiServiceImpl implements KonsultasiService {
             return executeStateTransition(konsultasi, () -> {
                 konsultasi.confirm();
                 konsultasiConfirmedCounter.increment();
+                log.info("Successfully confirmed konsultasi: {}", konsultasiId);
                 return konsultasiRepository.save(konsultasi);
             });
         });
@@ -89,6 +97,8 @@ public class KonsultasiServiceImpl implements KonsultasiService {
     @Override
     @Transactional
     public KonsultasiResponseDto cancelKonsultasi(UUID konsultasiId, UUID userId, String role) {
+        log.info("Cancelling konsultasi: {} by user: {} ({})", konsultasiId, userId, role);
+        
         return executeWithErrorHandling(() -> {
             Konsultasi konsultasi = findKonsultasiById(konsultasiId);
             validateUserRoleAndOwnership(konsultasi, userId, role);
@@ -98,6 +108,7 @@ public class KonsultasiServiceImpl implements KonsultasiService {
             return executeStateTransition(konsultasi, () -> {
                 konsultasi.cancel();
                 konsultasiCancelledCounter.increment();
+                log.info("Successfully cancelled konsultasi: {}", konsultasiId);
                 return konsultasiRepository.save(konsultasi);
             });
         });
@@ -113,6 +124,7 @@ public class KonsultasiServiceImpl implements KonsultasiService {
             return executeStateTransition(konsultasi, () -> {
                 konsultasi.complete();
                 konsultasiCompletedCounter.increment();
+                log.info("Successfully completed konsultasi: {}", konsultasiId);
                 return konsultasiRepository.save(konsultasi);
             });
         });
@@ -135,6 +147,7 @@ public class KonsultasiServiceImpl implements KonsultasiService {
             Konsultasi savedKonsultasi = konsultasiRepository.save(konsultasi);
 
             konsultasiUpdateRequestCounter.increment();
+            log.info("Successfully updated konsultasi request: {}", konsultasiId);
             return convertToResponseDto(savedKonsultasi);
         });
     }
@@ -142,6 +155,8 @@ public class KonsultasiServiceImpl implements KonsultasiService {
     @Override
     @Transactional
     public KonsultasiResponseDto rescheduleKonsultasi(UUID konsultasiId, RescheduleKonsultasiDto dto, UUID caregiverId) {
+        log.info("Rescheduling konsultasi: {} to {}", konsultasiId, dto.getNewScheduleDateTime());
+        
         return executeWithErrorHandling(() -> {
             Konsultasi konsultasi = findKonsultasiById(konsultasiId);
             validateUserRoleAndOwnership(konsultasi, caregiverId, CAREGIVER_ROLE);
@@ -156,6 +171,7 @@ public class KonsultasiServiceImpl implements KonsultasiService {
             return executeStateTransition(konsultasi, () -> {
                 updateKonsultasiForReschedule(konsultasi, dto, targetScheduleId, currentDateTime);
                 konsultasiRescheduledCounter.increment();
+                log.info("Successfully rescheduled konsultasi: {}", konsultasiId);
                 return konsultasiRepository.save(konsultasi);
             });
         });
@@ -230,6 +246,7 @@ public class KonsultasiServiceImpl implements KonsultasiService {
             return operation.get();
         } catch (Exception e) {
             konsultasiErrorCounter.increment();
+            log.error("Konsultasi operation failed: {}", e.getMessage(), e);
             throw e;
         }
     }
