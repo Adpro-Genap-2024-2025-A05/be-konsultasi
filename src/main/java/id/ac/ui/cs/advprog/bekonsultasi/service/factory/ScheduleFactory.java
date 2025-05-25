@@ -10,3 +10,4 @@ public interface ScheduleFactory {
     Schedule createSchedule(CreateScheduleDto dto, UUID caregiverId);
     Schedule createOneTimeSchedule(CreateOneTimeScheduleDto dto, UUID caregiverId);
 }
+
