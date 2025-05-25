@@ -46,6 +46,25 @@ Mitigasi: Desain baru memperkenalkan arsitektur failover dengan menambahkan Back
 
 ![Code Diagram Steven](./images/code-diagram-steven.png)
 
+
+# Individu Progress 90% (Steven Setiawan)
+
+## Profiling
+
+![Profiling Before](./images/profiling-steven-before.jpg)
+
+![Code Before](./images/code-steven-before.jpg)
+
+![Profiling After](./images/profiling-steven-after.jpg)
+
+![Code After](./images/code-steven-after.jpg)
+
+## Monitoring
+
+![Monitoring Grafana](./images/monitoring-steven1.jpg)
+
+![Monitoring Prometheus](./images/monitoring-steven2.jpg)
+
 # Schedule Component - BE-Konsultasi Service
 
 # Deployment
