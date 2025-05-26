@@ -135,6 +135,8 @@ jobs:
               -e POSTGRES_USER=${POSTGRES_USER} \
               -e POSTGRES_PASSWORD=${POSTGRES_PASSWORD} \
               -e SPRING_JPA_HIBERNATE_DDL_AUTO=update \
+              -e AUTH_SERVICE_URL=${AUTH_SERVICE_URL} \
+              -e JWT_SECRET=${JWT_SECRET} \
               --restart always \
               ${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}:$VERSION
             
