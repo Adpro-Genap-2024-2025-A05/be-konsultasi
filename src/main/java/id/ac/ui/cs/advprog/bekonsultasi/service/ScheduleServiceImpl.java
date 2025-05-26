@@ -16,6 +16,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.scheduling.annotation.Async;
+
+import java.time.temporal.TemporalAdjusters;
 import java.util.concurrent.CompletableFuture;
 
 import java.time.*;
@@ -304,7 +306,43 @@ public class ScheduleServiceImpl implements ScheduleService {
         scheduleAvailabilityCheckCounter.increment();
 
         try {
-            findScheduleById(scheduleId);
+            Schedule schedule = findScheduleById(scheduleId);
+
+            LocalTime requestedTime = dateTime.toLocalTime();
+            if (requestedTime.isBefore(schedule.getStartTime()) ||
+                    requestedTime.isAfter(schedule.getEndTime().minusHours(1))) { // Assuming 1-hour consultation duration
+                return false;
+            }
+
+            if (schedule.isOneTime()) {
+                if (schedule.getSpecificDate() == null ||
+                        !schedule.getSpecificDate().equals(dateTime.toLocalDate())) {
+                    return false;
+                }
+            } else {
+
+                if (!schedule.getDay().equals(dateTime.getDayOfWeek())) {
+                    return false;
+                }
+            }
+
+            List<Konsultasi> existingKonsultations = konsultasiRepository.findByScheduleId(scheduleId);
+
+            for (Konsultasi konsultasi : existingKonsultations) {
+
+                if ("CANCELLED".equals(konsultasi.getStatus()) || "DONE".equals(konsultasi.getStatus())) {
+                    continue;
+                }
+
+                LocalDateTime existingStart = konsultasi.getScheduleDateTime();
+                LocalDateTime existingEnd = existingStart.plusHours(1);
+                LocalDateTime requestedEnd = dateTime.plusHours(1);
+
+                if ((dateTime.isBefore(existingEnd) && requestedEnd.isAfter(existingStart)) ||
+                        dateTime.equals(existingStart)) {
+                    return false;
+                }
+            }
 
             scheduleSuccessfulOperationsCounter.increment();
             return true;
@@ -317,13 +355,48 @@ public class ScheduleServiceImpl implements ScheduleService {
         }
     }
 
+
     @Override
     public List<LocalDateTime> getAvailableDateTimesForSchedule(UUID scheduleId, int weeksAhead) {
         log.info("Getting available times for schedule: {}, weeks ahead: {}", scheduleId, weeksAhead);
         scheduleAvailableTimesRequestCounter.increment();
 
         try {
+            Schedule schedule = findScheduleById(scheduleId);
             List<LocalDateTime> availableTimes = new ArrayList<>();
+
+            if (schedule.isOneTime()) {
+                if (schedule.getSpecificDate() != null) {
+                    LocalDateTime dateTime = LocalDateTime.of(
+                            schedule.getSpecificDate(),
+                            schedule.getStartTime()
+                    );
+                    if (dateTime.isAfter(LocalDateTime.now()) &&
+                            isScheduleAvailableForDateTime(scheduleId, dateTime)) {
+                        availableTimes.add(dateTime);
+                    }
+                }
+            } else {
+                LocalDateTime now = LocalDateTime.now();
+                LocalDate today = now.toLocalDate();
+                LocalDate nextDay = today.with(TemporalAdjusters.nextOrSame(schedule.getDay()));
+
+                if (nextDay.equals(today) && now.toLocalTime().isAfter(schedule.getStartTime())) {
+                    nextDay = today.with(TemporalAdjusters.next(schedule.getDay()));
+                }
+
+                for (int i = 0; i < weeksAhead; i++) {
+                    LocalDate dateToCheck = nextDay.plusWeeks(i);
+                    LocalDateTime dateTimeToCheck = LocalDateTime.of(
+                            dateToCheck,
+                            schedule.getStartTime()
+                    );
+
+                    if (isScheduleAvailableForDateTime(scheduleId, dateTimeToCheck)) {
+                        availableTimes.add(dateTimeToCheck);
+                    }
+                }
+            }
 
             scheduleSuccessfulOperationsCounter.increment();
             return availableTimes;

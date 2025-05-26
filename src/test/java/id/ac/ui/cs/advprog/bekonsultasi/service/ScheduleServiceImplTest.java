@@ -345,11 +345,31 @@ class ScheduleServiceImplTest {
 
     @Test
     void isScheduleAvailableForDateTime_Success() {
-        when(scheduleRepository.findById(scheduleId)).thenReturn(Optional.of(schedule));
+        LocalDateTime testDateTime = LocalDateTime.of(2024, 1, 15, 9, 0);
 
-        boolean result = scheduleService.isScheduleAvailableForDateTime(scheduleId, LocalDateTime.now());
+        when(scheduleRepository.findById(scheduleId)).thenReturn(Optional.of(schedule));
+        when(konsultasiRepository.findByScheduleId(scheduleId)).thenReturn(Collections.emptyList());
+
+        boolean result = scheduleService.isScheduleAvailableForDateTime(scheduleId, testDateTime);
 
         assertTrue(result);
+    }
+
+    @Test
+    void isScheduleAvailableForDateTime_WithExistingKonsultasi_ReturnsFalse() {
+        LocalDateTime testDateTime = LocalDateTime.of(2024, 1, 15, 9, 0);
+        Konsultasi existingKonsultasi = Konsultasi.builder()
+                .status("CONFIRMED")
+                .scheduleDateTime(testDateTime)
+                .build();
+
+        when(scheduleRepository.findById(scheduleId)).thenReturn(Optional.of(schedule));
+        when(konsultasiRepository.findByScheduleId(scheduleId))
+                .thenReturn(Collections.singletonList(existingKonsultasi));
+
+        boolean result = scheduleService.isScheduleAvailableForDateTime(scheduleId, testDateTime);
+
+        assertFalse(result);
     }
 
     @Test
@@ -362,10 +382,26 @@ class ScheduleServiceImplTest {
     }
 
     @Test
-    void getAvailableDateTimesForSchedule_Success() {
-        List<LocalDateTime> result = scheduleService.getAvailableDateTimesForSchedule(scheduleId, 4);
+    void getAvailableDateTimesForSchedule_RecurringSchedule_ReturnsCorrectDates() {
+        when(scheduleRepository.findById(scheduleId)).thenReturn(Optional.of(schedule));
+
+        List<LocalDateTime> result = scheduleService.getAvailableDateTimesForSchedule(scheduleId, 3);
 
         assertNotNull(result);
+        assertEquals(3, result.size());
+        for (LocalDateTime dateTime : result) {
+            assertEquals(DayOfWeek.MONDAY, dateTime.getDayOfWeek());
+            assertEquals(LocalTime.of(9, 0), dateTime.toLocalTime());
+            assertTrue(dateTime.isAfter(LocalDateTime.now()));
+        }
+    }
+
+    @Test
+    void getAvailableDateTimesForSchedule_ScheduleNotFound_ThrowsException() {
+        when(scheduleRepository.findById(scheduleId)).thenReturn(Optional.empty());
+
+        assertThrows(IllegalArgumentException.class,
+                () -> scheduleService.getAvailableDateTimesForSchedule(scheduleId, 2));
     }
 
     @Test
